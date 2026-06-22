@@ -1,5 +1,6 @@
 package com.virtuehire.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -10,11 +11,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private static final String[] ALLOWED_ORIGIN_PATTERNS = {
-            "https://admin.virtuehire.in",
-            "https://backend.virtuehire.in",
-            "http://localhost:*"
-    };
+    @Value("${app.cors.allowed-origin-patterns:https://*.up.railway.app,http://localhost:*}")
+    private String[] allowedOriginPatterns;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -25,17 +23,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/api/ws-assessment")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS)
+                .setAllowedOriginPatterns(allowedOriginPatterns)
                 .withSockJS();
 
         registry.addEndpoint("/api/ws-assessment")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS);
+                .setAllowedOriginPatterns(allowedOriginPatterns);
 
         registry.addEndpoint("/ws-assessment")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS)
+                .setAllowedOriginPatterns(allowedOriginPatterns)
                 .withSockJS();
         
         registry.addEndpoint("/ws-assessment")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS);
+                .setAllowedOriginPatterns(allowedOriginPatterns);
     }
 }

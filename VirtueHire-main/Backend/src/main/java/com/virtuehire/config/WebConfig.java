@@ -1,6 +1,7 @@
 package com.virtuehire.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -11,6 +12,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Autowired
     private JwtInterceptor jwtInterceptor;
+
+    @Value("${app.cors.allowed-origin-patterns:https://*.up.railway.app,http://localhost:*}")
+    private String[] allowedOriginPatterns;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -50,14 +54,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins(
-                        "https://admin.virtuehire.in",
-                        "https://virtuehire.in",
-                        "https://www.virtuehire.in",
-                        "https://backend.virtuehire.in",
-                        "http://localhost:3000",
-                        "http://localhost:3001"
-                )
+                .allowedOriginPatterns(allowedOriginPatterns)
                 .allowedMethods("*")
                 .allowedHeaders("*")
                 .allowCredentials(true);
