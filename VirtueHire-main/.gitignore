@@ -1,0 +1,22 @@
+# Backend ignores
+Backend/target/
+Backend/.m2repo/
+Backend/uploads/
+Backend/.classpath
+Backend/.project
+Backend/.codex-maven-settings.xml
+Backend/*.txt
+Backend/src/main/resources/application.properties
+
+# Frontend ignores
+Frontend/build/
+Frontend/build-validation*/
+Frontend/node_modules/
+Frontend/.env
+Frontend/.tmp_resume_templates/
+Frontend/stash_files.txt
+Frontend/stashed_package.json
+
+# Other
+.m2/
+*.zip
