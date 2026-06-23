@@ -11,8 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,6 +43,9 @@ public class CandidateService {
 
     @Value("${app.mail.from:}")
     private String mailFrom;
+
+    @Value("${BREVO_API_KEY:}")
+    private String brevoApiKey;
 
     private Map<String, String> resetCodes = new HashMap<>();
 
@@ -216,6 +223,11 @@ public class CandidateService {
     }
 
     private void sendEmail(String to, String subject, String body) {
+        if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+            sendEmailWithBrevoApi(to, subject, body);
+            return;
+        }
+
         SimpleMailMessage message = new SimpleMailMessage();
         if (mailFrom != null && !mailFrom.isBlank()) {
             message.setFrom(mailFrom);
@@ -224,6 +236,28 @@ public class CandidateService {
         message.setSubject(subject);
         message.setText(body);
         mailSender.send(message);
+    }
+
+    private void sendEmailWithBrevoApi(String to, String subject, String body) {
+        String from = mailFrom != null && !mailFrom.isBlank() ? mailFrom : "no-reply@virtuehire.in";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("api-key", brevoApiKey);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        Map<String, Object> payload = Map.of(
+                "sender", Map.of(
+                        "name", "VirtueHire",
+                        "email", from),
+                "to", List.of(Map.of("email", to)),
+                "subject", subject,
+                "textContent", body);
+
+        new RestTemplate().postForEntity(
+                "https://api.brevo.com/v3/smtp/email",
+                new HttpEntity<>(payload, headers),
+                String.class);
     }
 
     public void resetPassword(String email, String code, String newPassword) {
