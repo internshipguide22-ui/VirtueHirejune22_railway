@@ -78,13 +78,21 @@ export default function CandidateRegister() {
       const responseMessage =
         res.data.message || "Candidate registered successfully!";
 
+      localStorage.setItem("pendingVerificationEmail", registeredEmail);
+
       if (res.data.emailSent === false) {
         setError(responseMessage);
+        setTimeout(
+          () =>
+            navigate(
+              `/candidate/verify-otp?email=${encodeURIComponent(registeredEmail)}`,
+            ),
+          1800,
+        );
         return;
       }
 
       setMessage(responseMessage);
-      localStorage.setItem("pendingVerificationEmail", registeredEmail);
       setForm({
         fullName: "",
         email: "",

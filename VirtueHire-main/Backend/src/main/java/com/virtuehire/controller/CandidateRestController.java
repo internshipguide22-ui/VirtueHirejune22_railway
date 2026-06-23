@@ -118,7 +118,7 @@ public class CandidateRestController {
             message += " Please check your email for the OTP.";
         } catch (MailException ex) {
             logger.error("Candidate registered but verification email failed for {}", candidate.getEmail(), ex);
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
                     "error", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
                     "message", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
                     "requiresOtpVerification", true,
@@ -131,7 +131,7 @@ public class CandidateRestController {
             }
             logger.error("Brevo API rejected candidate OTP email for {}: {}", candidate.getEmail(),
                     brevoError, ex);
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
                     "error", "Candidate registered, but Brevo rejected the OTP email: " + brevoError,
                     "message", "Candidate registered, but Brevo rejected the OTP email: " + brevoError,
                     "requiresOtpVerification", true,
@@ -504,6 +504,11 @@ public class CandidateRestController {
             logger.error("Failed to resend candidate OTP email for {}", email, ex);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(Map.of("error", "Could not send OTP email right now. Please try again later."));
+        } catch (RestClientResponseException ex) {
+            String brevoError = "HTTP " + ex.getRawStatusCode() + " " + ex.getStatusText();
+            logger.error("Brevo API rejected candidate OTP resend for {}: {}", email, brevoError, ex);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "Brevo rejected the OTP email: " + brevoError));
         } catch (RuntimeException ex) {
             String message = ex.getMessage() == null ? "Failed to resend OTP" : ex.getMessage();
             HttpStatus status = "Candidate not found".equalsIgnoreCase(message)
