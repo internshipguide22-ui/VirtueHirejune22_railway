@@ -16,6 +16,9 @@ public class HrService {
     @org.springframework.beans.factory.annotation.Autowired
     private org.springframework.mail.javamail.JavaMailSender mailSender;
 
+    @org.springframework.beans.factory.annotation.Value("${app.mail.from:}")
+    private String mailFrom;
+
     public HrService(HrRepository repo) {
         this.repo = repo;
     }
@@ -33,6 +36,9 @@ public class HrService {
         repo.save(hr);
 
         org.springframework.mail.SimpleMailMessage message = new org.springframework.mail.SimpleMailMessage();
+        if (mailFrom != null && !mailFrom.isBlank()) {
+            message.setFrom(mailFrom);
+        }
         message.setTo(hr.getEmail());
         message.setSubject("VirtueHire HR Verification");
         message.setText("Hello " + hr.getFullName() + ",\n\n"
@@ -60,6 +66,9 @@ public class HrService {
     // ------------------ SEND APPROVAL MAIL ------------------
     public void sendApprovalMail(Hr hr) {
         org.springframework.mail.SimpleMailMessage message = new org.springframework.mail.SimpleMailMessage();
+        if (mailFrom != null && !mailFrom.isBlank()) {
+            message.setFrom(mailFrom);
+        }
         message.setTo(hr.getEmail());
         message.setSubject("VirtueHire HR Account Approved");
         message.setText("Hello " + hr.getFullName() + ",\n\n"

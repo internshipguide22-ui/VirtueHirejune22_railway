@@ -4,6 +4,7 @@ import com.virtuehire.model.*;
 import com.virtuehire.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ public class TestAllocationService {
     private final AssessmentQuestionRepository assessmentQuestionRepository;
     private final HiringWorkflowService hiringWorkflowService;
     private final JavaMailSender mailSender;
+    private final String mailFrom;
 
     public TestAllocationService(CandidateTestMappingRepository testMappingRepo,
                                  CandidateRepository candidateRepo,
@@ -33,7 +35,8 @@ public class TestAllocationService {
                                  AssessmentSectionRepository assessmentSectionRepository,
                                  AssessmentQuestionRepository assessmentQuestionRepository,
                                  HiringWorkflowService hiringWorkflowService,
-                                 JavaMailSender mailSender) {
+                                 JavaMailSender mailSender,
+                                 @Value("${app.mail.from:}") String mailFrom) {
         this.testMappingRepo = testMappingRepo;
         this.candidateRepo = candidateRepo;
         this.assessmentRepository = assessmentRepository;
@@ -41,6 +44,7 @@ public class TestAllocationService {
         this.assessmentQuestionRepository = assessmentQuestionRepository;
         this.hiringWorkflowService = hiringWorkflowService;
         this.mailSender = mailSender;
+        this.mailFrom = mailFrom;
     }
 
     /**
@@ -342,6 +346,9 @@ public class TestAllocationService {
             }
 
             SimpleMailMessage message = new SimpleMailMessage();
+            if (mailFrom != null && !mailFrom.isBlank()) {
+                message.setFrom(mailFrom);
+            }
             message.setTo(candidate.getEmail());
             message.setSubject("New Test Assigned - " + assessment.getAssessmentName());
             

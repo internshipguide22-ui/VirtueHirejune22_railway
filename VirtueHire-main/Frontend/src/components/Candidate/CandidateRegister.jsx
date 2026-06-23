@@ -75,7 +75,15 @@ export default function CandidateRegister() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      setMessage(res.data.message || "Candidate registered successfully!");
+      const responseMessage =
+        res.data.message || "Candidate registered successfully!";
+
+      if (res.data.emailSent === false) {
+        setError(responseMessage);
+        return;
+      }
+
+      setMessage(responseMessage);
       localStorage.setItem("pendingVerificationEmail", registeredEmail);
       setForm({
         fullName: "",
@@ -106,7 +114,9 @@ export default function CandidateRegister() {
     } catch (err) {
       console.error(err);
       setError(
-        err.response?.data?.error || "Registration failed. Please try again.",
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Registration failed. Please try again.",
       );
     } finally {
       setLoading(false);

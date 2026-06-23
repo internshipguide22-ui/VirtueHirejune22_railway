@@ -112,20 +112,31 @@ public class CandidateRestController {
         candidateService.save(candidate);
 
         String message = "Candidate registered successfully!";
-        boolean emailSent = false;
         try {
             candidateService.sendVerificationMail(candidate);
-            emailSent = true;
             message += " Please check your email for the OTP.";
+        } catch (MailException ex) {
+            logger.error("Candidate registered but verification email failed for {}", candidate.getEmail(), ex);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "error", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
+                    "message", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
+                    "requiresOtpVerification", true,
+                    "emailSent", false,
+                    "candidate", toCandidateResponse(candidate)));
         } catch (Exception ex) {
             logger.error("Candidate registered but verification email failed for {}", candidate.getEmail(), ex);
-            message += " We could not send the verification email right now. Please try again later.";
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "error", "Candidate registered, but verification setup failed. Please try again later.",
+                    "message", "Candidate registered, but verification setup failed. Please try again later.",
+                    "requiresOtpVerification", true,
+                    "emailSent", false,
+                    "candidate", toCandidateResponse(candidate)));
         }
 
         return ResponseEntity.ok(Map.of(
                 "message", message,
                 "requiresOtpVerification", true,
-                "emailSent", emailSent,
+                "emailSent", true,
                 "candidate", toCandidateResponse(candidate)));
     }
 

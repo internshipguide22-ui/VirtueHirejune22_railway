@@ -23,7 +23,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "CI=false SKIP_ESLINT=true react-scripts build",
+    "build": "react-scripts build",
     "railway:start": "node server.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

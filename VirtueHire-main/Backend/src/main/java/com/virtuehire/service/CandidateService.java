@@ -37,6 +37,9 @@ public class CandidateService {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Value("${app.mail.from:}")
+    private String mailFrom;
+
     private Map<String, String> resetCodes = new HashMap<>();
 
     public CandidateService(
@@ -214,6 +217,9 @@ public class CandidateService {
 
     private void sendEmail(String to, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
+        if (mailFrom != null && !mailFrom.isBlank()) {
+            message.setFrom(mailFrom);
+        }
         message.setTo(to);
         message.setSubject(subject);
         message.setText(body);
