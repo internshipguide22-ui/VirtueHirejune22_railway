@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.client.RestClientResponseException;
 
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
@@ -120,6 +121,15 @@ public class CandidateRestController {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
                     "error", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
                     "message", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
+                    "requiresOtpVerification", true,
+                    "emailSent", false,
+                    "candidate", toCandidateResponse(candidate)));
+        } catch (RestClientResponseException ex) {
+            logger.error("Brevo API rejected candidate OTP email for {}: {}", candidate.getEmail(),
+                    ex.getResponseBodyAsString(), ex);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "error", "Candidate registered, but Brevo rejected the OTP email: " + ex.getResponseBodyAsString(),
+                    "message", "Candidate registered, but Brevo rejected the OTP email: " + ex.getResponseBodyAsString(),
                     "requiresOtpVerification", true,
                     "emailSent", false,
                     "candidate", toCandidateResponse(candidate)));
