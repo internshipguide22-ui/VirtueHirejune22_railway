@@ -125,11 +125,15 @@ public class CandidateRestController {
                     "emailSent", false,
                     "candidate", toCandidateResponse(candidate)));
         } catch (RestClientResponseException ex) {
+            String brevoError = "HTTP " + ex.getRawStatusCode() + " " + ex.getStatusText();
+            if (ex.getResponseBodyAsString() != null && !ex.getResponseBodyAsString().isBlank()) {
+                brevoError += ": " + ex.getResponseBodyAsString();
+            }
             logger.error("Brevo API rejected candidate OTP email for {}: {}", candidate.getEmail(),
-                    ex.getResponseBodyAsString(), ex);
+                    brevoError, ex);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
-                    "error", "Candidate registered, but Brevo rejected the OTP email: " + ex.getResponseBodyAsString(),
-                    "message", "Candidate registered, but Brevo rejected the OTP email: " + ex.getResponseBodyAsString(),
+                    "error", "Candidate registered, but Brevo rejected the OTP email: " + brevoError,
+                    "message", "Candidate registered, but Brevo rejected the OTP email: " + brevoError,
                     "requiresOtpVerification", true,
                     "emailSent", false,
                     "candidate", toCandidateResponse(candidate)));
