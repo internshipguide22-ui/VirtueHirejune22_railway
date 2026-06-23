@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/monitoring")
-@CrossOrigin(origins = "https://admin.virtuehire.in", allowCredentials = "true")
 public class ExamActivityController {
 
     @Autowired

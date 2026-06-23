@@ -13,10 +13,6 @@ import com.virtuehire.util.JwtUtil;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = {
-        "https://admin.virtuehire.in",
-        "https://backend.virtuehire.in",
-}, allowCredentials = "true")
 public class AuthRestController {
 
     private final CandidateService candidateService;

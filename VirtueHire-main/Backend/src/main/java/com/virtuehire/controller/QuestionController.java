@@ -16,7 +16,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/questions")
-@CrossOrigin(origins = "https://admin.virtuehire.in")
 public class QuestionController {
 
     private final QuestionRepository  questionRepository;

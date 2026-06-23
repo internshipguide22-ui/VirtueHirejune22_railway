@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/hrs")
-@CrossOrigin(origins = "https://admin.virtuehire.in", allowCredentials = "true")
 public class HrRestController {
 
     private static final Logger logger = LoggerFactory.getLogger(HrRestController.class);
