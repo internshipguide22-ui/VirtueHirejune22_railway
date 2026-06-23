@@ -36,6 +36,10 @@ assessment.pass.percent=75
 spring.jackson.property-naming-strategy=LOWER_CAMEL_CASE
 
 # ---------------- Mail Configuration ----------------
+# For Gmail SMTP use smtp.gmail.com and your app password.
+# For Brevo SMTP relay use smtp-relay.brevo.com and provide MAIL_USERNAME / MAIL_PASSWORD.
+# To send through Brevo's REST API instead, set BREVO_API_KEY to a valid Brevo API key.
+
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
 spring.mail.username=YOUR_EMAIL_USERNAME
