@@ -82,13 +82,6 @@ export default function CandidateRegister() {
 
       if (res.data.emailSent === false) {
         setError(responseMessage);
-        setTimeout(
-          () =>
-            navigate(
-              `/candidate/verify-otp?email=${encodeURIComponent(registeredEmail)}`,
-            ),
-          1800,
-        );
         return;
       }
 
