@@ -329,11 +329,12 @@ public class QuestionService {
 
         String subjectHeader = findHeader(normalizedToActual, "subject");
         String questionHeader = findHeader(normalizedToActual, "text", "question");
-        String option1Header = findHeader(normalizedToActual, "option1", "optiona");
-        String option2Header = findHeader(normalizedToActual, "option2", "optionb");
-        String option3Header = findHeader(normalizedToActual, "option3", "optionc");
-        String option4Header = findHeader(normalizedToActual, "option4", "optiond");
-        String correctHeader = findHeader(normalizedToActual, "correctanswer", "correctanswers", "correctan");
+        String option1Header = findHeader(normalizedToActual, "option1", "optiona", "option_a");
+        String option2Header = findHeader(normalizedToActual, "option2", "optionb", "option_b");
+        String option3Header = findHeader(normalizedToActual, "option3", "optionc", "option_c");
+        String option4Header = findHeader(normalizedToActual, "option4", "optiond", "option_d");
+        String correctHeader = findHeader(normalizedToActual, "correctanswer", "correctanswers", "correctan",
+                "correct_answer");
 
         List<String> commonMissing = new ArrayList<>();
         if (questionHeader == null) commonMissing.add("text/question");
