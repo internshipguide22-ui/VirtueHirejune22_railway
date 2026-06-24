@@ -70,7 +70,10 @@ public class JwtInterceptor implements HandlerInterceptor {
 
         HttpSession existingSession = request.getSession(false);
         if (hasAuthenticatedSession(existingSession)) {
-            return true;
+            Object sessionRole = existingSession.getAttribute("role");
+            if (!path.startsWith("/api/admin/") || "ADMIN".equals(sessionRole)) {
+                return true;
+            }
         }
 
         final String authorizationHeader = request.getHeader("Authorization");

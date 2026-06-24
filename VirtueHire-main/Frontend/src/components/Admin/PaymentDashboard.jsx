@@ -32,7 +32,7 @@ const PaymentDashboard = () => {
     setError("");
 
     try {
-      const res = await api.get("/payments/history");
+      const res = await api.get("/admin/payments");
       const data = Array.isArray(res.data) ? res.data : res.data?.payments || [];
 
       const successfulPayments = data.filter((p) => p.status === "SUCCESS");

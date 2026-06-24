@@ -914,24 +914,7 @@ public class HrRestController {
                 return ResponseEntity.status(403).build();
             }
 
-            String safeFileName = Paths.get(filename).getFileName().toString().trim();
-            Path filePath = uploadDir.resolve(safeFileName).normalize();
-            if (!filePath.startsWith(uploadDir)) {
-                return ResponseEntity.status(403).build();
-            }
-            Resource resource = new UrlResource(filePath.toUri());
-            if (!resource.exists())
-                return ResponseEntity.notFound().build();
-
-            String contentType = Files.probeContentType(filePath);
-            if (contentType == null)
-                contentType = "application/octet-stream";
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "inline; filename=\"" + resource.getFilename() + "\"")
-                    .body(resource);
+            return serveStoredFile(filename, "inline");
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
