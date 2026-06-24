@@ -314,7 +314,7 @@ public class AssessmentRestController {
     }
 
     // =========================================================
-    // SUBJECTS (Assessments assigned to the logged-in candidate only)
+    // SUBJECTS (all admin-created assessments, plus candidate-specific mappings)
     // =========================================================
 
     @GetMapping("/subjects")
@@ -327,13 +327,23 @@ public class AssessmentRestController {
                     .body(Map.of("error", "Not logged in"));
         }
 
-        List<CandidateTestMapping> mappings =
-                testAllocationService.getAssignedTestsForCandidate(candidate.getId());
+        LinkedHashSet<String> subjectSet = new LinkedHashSet<>();
 
-        List<String> subjects = mappings.stream()
+        assessmentService.getAllAssessments().stream()
+                .map(Assessment::getAssessmentName)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(name -> !name.isBlank())
+                .forEach(subjectSet::add);
+
+        testAllocationService.getAssignedTestsForCandidate(candidate.getId()).stream()
                 .map(CandidateTestMapping::getTestName)
-                .distinct()
-                .toList();
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(name -> !name.isBlank())
+                .forEach(subjectSet::add);
+
+        List<String> subjects = new ArrayList<>(subjectSet);
 
         return ResponseEntity.ok(subjects);
     }

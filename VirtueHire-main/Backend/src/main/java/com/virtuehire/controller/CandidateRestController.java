@@ -2,6 +2,7 @@
 
 package com.virtuehire.controller;
 
+import com.virtuehire.model.Assessment;
 import com.virtuehire.model.AssessmentResult;
 import com.virtuehire.model.AssignmentSubmission;
 import com.virtuehire.model.Candidate;
@@ -284,13 +285,19 @@ public class CandidateRestController {
             session.setAttribute("candidate", candidate);
 
             // Use LinkedHashSet to deduplicate while preserving insertion order.
-            // Show all candidate-specific sources:
-            // 1) HR-mapped assessments (candidate_test_mapping)
-            // 2) Admin-assigned assessments (candidate.assignedAssessmentName)
-            // 3) Candidate's own attempted assessments (result history)
+            // Show every admin-created assessment to every candidate, plus any
+            // candidate-specific state that already exists.
             LinkedHashSet<String> assessmentSet = new LinkedHashSet<>();
 
-            // Source 1: candidate_test_mapping for this specific candidate.
+            // Source 1: all assessments created in Admin Manage Tests.
+            assessmentService.getAllAssessments().stream()
+                    .map(Assessment::getAssessmentName)
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(name -> !name.isBlank())
+                    .forEach(assessmentSet::add);
+
+            // Source 2: candidate_test_mapping for this specific candidate.
             LocalDateTime now = LocalDateTime.now();
             List<CandidateTestMapping> assignedMappings = hiringWorkflowService
                     .getAssignedTestsForCandidate(candidate.getId()).stream()
@@ -303,7 +310,7 @@ public class CandidateRestController {
                     .filter(name -> !name.isBlank())
                     .forEach(assessmentSet::add);
 
-            // Source 2: admin/HR-assigned names stored on candidate profile.
+            // Source 3: admin/HR-assigned names stored on candidate profile.
             if (candidate.getAssignedAssessmentName() != null
                     && !candidate.getAssignedAssessmentName().isBlank()) {
                 Arrays.stream(candidate.getAssignedAssessmentName().split(","))
@@ -312,7 +319,7 @@ public class CandidateRestController {
                         .forEach(assessmentSet::add);
             }
 
-            // Source 3: subjects from this candidate's own result history.
+            // Source 4: subjects from this candidate's own result history.
             List<AssessmentResult> results = assessmentResultService.getCandidateResults(candidate.getId());
             for (AssessmentResult result : results) {
                 if (result.getSubject() != null && !result.getSubject().isBlank()) {
@@ -328,8 +335,8 @@ public class CandidateRestController {
                                     : ""),
                     "assessmentAssignmentStatus", assessmentSet.isEmpty() ? "NOT_ASSIGNED" : "ASSIGNED",
                     "assessmentAssignmentMessage", assessmentSet.isEmpty()
-                            ? "No tests assigned yet. Please wait for HR to assign your test."
-                            : "Tests assigned by HR are available in your dashboard."));
+                            ? "No assessments are available yet."
+                            : "Available assessments are shown in your dashboard."));
         } catch (Exception e) {
             logger.error("Failed to fetch assessments for candidate", e);
             return ResponseEntity.status(500)
@@ -691,17 +698,29 @@ public class CandidateRestController {
 
             LocalDateTime now = LocalDateTime.now();
             var assignedTests = hiringWorkflowService.getAssignedTestsForCandidate(candidate.getId());
-            var availableTests = assignedTests.stream()
+            var availableMappedTests = assignedTests.stream()
                     .filter(test -> test.getAvailableFrom() == null || !test.getAvailableFrom().isAfter(now))
                     .toList();
             var scheduledTests = assignedTests.stream()
                     .filter(test -> test.getAvailableFrom() != null && test.getAvailableFrom().isAfter(now))
                     .toList();
+            List<Object> availableTests = new ArrayList<>(availableMappedTests);
+            Set<Long> mappedTestIds = availableMappedTests.stream()
+                    .map(CandidateTestMapping::getTestId)
+                    .filter(Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toSet());
+            List<AssessmentResult> candidateResults = assessmentResultService.getCandidateResults(candidate.getId());
+
+            assessmentService.getAllAssessments().stream()
+                    .filter(assessment -> assessment.getId() != null && !mappedTestIds.contains(assessment.getId()))
+                    .map(assessment -> buildGlobalCandidateTest(assessment, candidateResults))
+                    .forEach(availableTests::add);
+
             var pendingTests = availableTests.stream()
-                    .filter(test -> !Boolean.TRUE.equals(test.getSubmitted()))
+                    .filter(test -> !isCandidateTestSubmitted(test))
                     .toList();
             var submittedTests = availableTests.stream()
-                    .filter(test -> Boolean.TRUE.equals(test.getSubmitted()))
+                    .filter(this::isCandidateTestSubmitted)
                     .toList();
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("candidateId", candidate.getId());
@@ -714,7 +733,10 @@ public class CandidateRestController {
             response.put("scheduledCount", scheduledTests.size());
             response.put("pendingCount", pendingTests.size());
             response.put("submittedCount", submittedTests.size());
-            response.put("candidateStatus", candidateOpt.get().getApplicationStatus().toString());
+            Candidate persistedCandidate = candidateOpt.get();
+            response.put("candidateStatus", persistedCandidate.getApplicationStatus() != null
+                    ? persistedCandidate.getApplicationStatus().toString()
+                    : null);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", "Failed to fetch assigned tests"));
@@ -736,14 +758,18 @@ public class CandidateRestController {
 
         try {
             LocalDateTime now = LocalDateTime.now();
-            var assignedTests = hiringWorkflowService.getUnsubmittedTestsForCandidate(candidate.getId()).stream()
+            var assignedTests = hiringWorkflowService.getAssignedTestsForCandidate(candidate.getId()).stream()
                     .filter(t -> t.getAvailableFrom() == null || !t.getAvailableFrom().isAfter(now))
                     .toList();
             boolean hasAccess = assignedTests.stream()
                     .anyMatch(t -> Objects.equals(t.getTestId(), testId));
 
             if (!hasAccess) {
-                return ResponseEntity.status(403).body(Map.of("error", "You don't have access to this test"));
+                boolean globalAssessmentExists = assessmentService.getAllAssessments().stream()
+                        .anyMatch(assessment -> Objects.equals(assessment.getId(), testId));
+                if (!globalAssessmentExists) {
+                    return ResponseEntity.status(403).body(Map.of("error", "You don't have access to this test"));
+                }
             }
 
             var testDetails = testAllocationService.getTestDetails(testId);
@@ -832,6 +858,47 @@ public class CandidateRestController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", "Failed to submit assignment"));
         }
+    }
+
+    private Map<String, Object> buildGlobalCandidateTest(Assessment assessment, List<AssessmentResult> candidateResults) {
+        Map<String, Object> testDetails = testAllocationService.getTestDetails(assessment.getId());
+        long attemptedLevels = candidateResults.stream()
+                .filter(result -> result.getSubject() != null
+                        && result.getSubject().equalsIgnoreCase(assessment.getAssessmentName()))
+                .map(AssessmentResult::getLevel)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+        int totalSections = assessmentService.getAssessmentSections(assessment.getId()).size();
+        boolean completed = totalSections > 0 && attemptedLevels >= totalSections;
+
+        Map<String, Object> test = new LinkedHashMap<>();
+        test.put("id", "global-" + assessment.getId());
+        test.put("candidateId", null);
+        test.put("testId", assessment.getId());
+        test.put("assignedByHrId", null);
+        test.put("assignedAt", assessment.getCreatedAt());
+        test.put("availableFrom", assessment.getCreatedAt());
+        test.put("testName", assessment.getAssessmentName());
+        test.put("testDescription", assessment.getDescription() != null ? assessment.getDescription() : "");
+        test.put("durationMinutes", testDetails.getOrDefault("durationMinutes", 60));
+        test.put("submitted", completed);
+        test.put("submittedAt", null);
+        test.put("scoreObtained", null);
+        test.put("globalAssessment", true);
+        return test;
+    }
+
+    private boolean isCandidateTestSubmitted(Object test) {
+        if (test instanceof CandidateTestMapping mapping) {
+            return Boolean.TRUE.equals(mapping.getSubmitted());
+        }
+
+        if (test instanceof Map<?, ?> testMap) {
+            return Boolean.TRUE.equals(testMap.get("submitted"));
+        }
+
+        return false;
     }
 
     private String storeUploadedFile(MultipartFile file) throws IOException {
