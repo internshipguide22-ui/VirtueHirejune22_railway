@@ -106,9 +106,9 @@ export default function HRManagement() {
     }
   };
 
-  const handleViewIdProof = async (fileName) => {
+  const handleViewIdProof = async (hr) => {
     try {
-      const response = await api.get(`/hrs/file/${encodeURIComponent(fileName)}`, {
+      const response = await api.get(`/admin/hrs/${hr.id}/id-proof`, {
         responseType: "blob",
         withCredentials: true,
       });
@@ -116,17 +116,23 @@ export default function HRManagement() {
       window.open(objectUrl, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
     } catch (err) {
-      if (err.response?.status === 404) {
+      const status = err.response?.status;
+      if (status === 410) {
         showMsg(
           "error",
-          "ID proof file is missing from Railway storage. Ask the HR to upload/register it again.",
+          "This HR account has an ID proof record, but the stored file is missing. Ask the HR to upload the ID proof again.",
         );
-      } else if (err.response?.status === 403) {
+      } else if (status === 404) {
+        showMsg(
+          "error",
+          "No ID proof is available for this HR account.",
+        );
+      } else if (status === 403) {
         showMsg("error", "You do not have access to open this ID proof.");
       } else {
         showMsg("error", "Unable to open ID proof. Please try again.");
+        console.error(err);
       }
-      console.error(err);
     }
   };
 
@@ -268,7 +274,7 @@ export default function HRManagement() {
                         {hr.idProofPath ? (
                           <button
                             type="button"
-                            onClick={() => handleViewIdProof(hr.idProofPath)}
+                            onClick={() => handleViewIdProof(hr)}
                             className="hrm-proof-link"
                           >
                             <ExternalLink size={16} />

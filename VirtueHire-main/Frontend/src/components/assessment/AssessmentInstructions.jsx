@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import "./AssessmentInstructions.css";
 
@@ -8,7 +8,7 @@ const ASSESSMENT_DELIVERY_MODE_KEY = "assessmentDeliveryMode";
 const AssessmentInstructions = () => {
   const { subject, level } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const encodedSubject = encodeURIComponent(subject || "");
 
   const [agreed, setAgreed] = useState(false);
   const [examInfo, setExamInfo] = useState(null);
@@ -44,7 +44,7 @@ const AssessmentInstructions = () => {
     // Fetch exam info (questions count, time, section name)
     const fetchExamInfo = async () => {
       try {
-        const res = await api.get(`/assessment/${subject}/level/${level}`, {
+        const res = await api.get(`/assessment/${encodedSubject}/level/${level}`, {
           withCredentials: true,
         });
         if (res.data && !res.data.error) {
@@ -58,8 +58,13 @@ const AssessmentInstructions = () => {
         }
       } catch (err) {
         console.error("Failed to fetch exam info:", err);
+        const serverMessage =
+          err.response?.data?.error ||
+          err.response?.data?.message;
         setError(
-          "Failed to fetch exam details. The test might be locked or unavailable.",
+          typeof serverMessage === "string" && serverMessage.trim()
+            ? serverMessage
+            : "Failed to fetch exam details. The test might be locked or unavailable.",
         );
       } finally {
         setLoading(false);
@@ -67,7 +72,7 @@ const AssessmentInstructions = () => {
     };
 
     fetchExamInfo();
-  }, [subject, level]);
+  }, [encodedSubject, level]);
 
   const handleStartAssessment = () => {
     if (!agreed) return;
@@ -82,7 +87,7 @@ const AssessmentInstructions = () => {
     else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
 
     // Navigate to exam
-    navigate(`/assessment/${subject}/${level}`);
+    navigate(`/assessment/${encodedSubject}/${level}`);
   };
 
   if (loading) {

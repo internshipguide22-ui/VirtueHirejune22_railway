@@ -180,6 +180,9 @@ public class AssessmentRestController {
         }
 
         Assessment assessment = assessmentOpt.get();
+        if (assessment.isLocked()) {
+            return ResponseEntity.status(403).body(Map.of("error", "This assessment is locked by the admin."));
+        }
 
         List<AssessmentSection> sections = assessmentService.getAssessmentSections(assessment.getId());
 
@@ -237,6 +240,9 @@ public class AssessmentRestController {
             }
 
             Assessment assessment = assessmentOpt.get();
+            if (assessment.isLocked()) {
+                return ResponseEntity.status(403).body(Map.of("error", "This assessment is locked by the admin."));
+            }
 
             List<AssessmentSection> sections = assessmentService.getAssessmentSections(assessment.getId());
 

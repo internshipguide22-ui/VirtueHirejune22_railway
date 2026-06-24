@@ -496,6 +496,39 @@ public class AdminRestController {
                 "payments", paymentService.getPaymentsByHr(id)));
     }
 
+    @GetMapping("/hrs/{id}/id-proof")
+    public ResponseEntity<?> accessHrIdProof(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "inline") String disposition,
+            HttpSession session) {
+        ResponseEntity<Map<String, String>> forbidden = requireAdmin(session);
+        if (forbidden != null) {
+            return ResponseEntity.status(forbidden.getStatusCode()).body(forbidden.getBody());
+        }
+
+        Hr hr = hrService.findById(id).orElse(null);
+        if (hr == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "HR account not found"));
+        }
+
+        if (hr.getIdProofPath() == null || hr.getIdProofPath().isBlank()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "No ID proof uploaded"));
+        }
+
+        try {
+            ResponseEntity<Resource> fileResponse = serveStoredFile(hr.getIdProofPath(), disposition);
+            if (fileResponse.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
+                return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                        "error", "ID proof file is no longer available in storage. Ask the HR to upload it again."));
+            }
+            return fileResponse;
+        } catch (IOException ex) {
+            logger.error("Failed to serve HR ID proof for HR {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to open HR ID proof"));
+        }
+    }
+
     // ---------------------- CANDIDATE FILES ------------------------
     @GetMapping("/candidates/{candidateId}/resume")
     public ResponseEntity<Resource> accessCandidateResume(
