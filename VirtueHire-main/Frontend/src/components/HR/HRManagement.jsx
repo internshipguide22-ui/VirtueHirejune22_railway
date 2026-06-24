@@ -13,7 +13,6 @@ import {
   Trash2,
 } from "lucide-react";
 import "./HRManagement.css";
-import { API_BASE_URL } from "../../config";
 import { useAppDialog } from "../common/AppDialog";
 
 export default function HRManagement() {
@@ -103,6 +102,30 @@ export default function HRManagement() {
         "error",
         err.response?.data?.error || "Failed to delete HR account.",
       );
+      console.error(err);
+    }
+  };
+
+  const handleViewIdProof = async (fileName) => {
+    try {
+      const response = await api.get(`/hrs/file/${encodeURIComponent(fileName)}`, {
+        responseType: "blob",
+        withCredentials: true,
+      });
+      const objectUrl = URL.createObjectURL(response.data);
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        showMsg(
+          "error",
+          "ID proof file is missing from Railway storage. Ask the HR to upload/register it again.",
+        );
+      } else if (err.response?.status === 403) {
+        showMsg("error", "You do not have access to open this ID proof.");
+      } else {
+        showMsg("error", "Unable to open ID proof. Please try again.");
+      }
       console.error(err);
     }
   };
@@ -243,15 +266,14 @@ export default function HRManagement() {
                       </td>
                       <td>
                         {hr.idProofPath ? (
-                          <a
-                            href={`${API_BASE_URL}/hrs/file/${hr.idProofPath}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => handleViewIdProof(hr.idProofPath)}
                             className="hrm-proof-link"
                           >
                             <ExternalLink size={16} />
                             View Document
-                          </a>
+                          </button>
                         ) : (
                           <span className="hrm-no-proof">
                             No Proof Uploaded

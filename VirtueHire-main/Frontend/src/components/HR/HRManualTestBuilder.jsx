@@ -16,7 +16,7 @@ import "./TestManager.css";
 const COMPILER_LANGUAGE_OPTIONS = ["C", "C++", "Java", "Python"];
 const DEFAULT_SECTION = {
   subject: "",
-  questionCount: 10,
+  questionCount: 1,
   timeLimit: 10,
   passPercentage: 60,
   sectionMode: "NO_COMPILER",
@@ -37,15 +37,18 @@ const emptyQuestionForm = () => ({
   ],
 });
 
+const getAvailableForSection = (subjectInfo, sectionMode) => {
+  if (!subjectInfo) return 0;
+  return sectionMode === "COMPILER"
+    ? (subjectInfo.compilerCount ?? 0)
+    : (subjectInfo.noCompilerCount ?? subjectInfo.count ?? 0);
+};
+
 const SectionRow = ({ section, index, allSubjectsInfo, onChange, onRemove }) => {
   const selectedSubjectInfo = allSubjectsInfo.find(
     (item) => item.subject === section.subject,
   );
-  const maxAvailable = selectedSubjectInfo
-    ? section.sectionMode === "COMPILER"
-      ? (selectedSubjectInfo.compilerCount ?? 0)
-      : (selectedSubjectInfo.noCompilerCount ?? selectedSubjectInfo.count ?? 0)
-    : 0;
+  const maxAvailable = getAvailableForSection(selectedSubjectInfo, section.sectionMode);
 
   return (
     <div className="tm-section-row">
@@ -240,6 +243,34 @@ export default function HRManualTestBuilder() {
   const handleSaveQuestion = async () => {
     setError(null);
     setMessage(null);
+    if (!questionForm.subject.trim()) {
+      setError("Subject is required.");
+      return;
+    }
+    if (questionForm.questionType === "MCQ") {
+      const cleanOptions = questionForm.options.map((option) => option.trim());
+      if (!questionForm.questionText.trim()) {
+        setError("Question text is required.");
+        return;
+      }
+      if (cleanOptions.some((option) => !option)) {
+        setError("All four MCQ options are required.");
+        return;
+      }
+      if (!cleanOptions.some((option) => option.toLowerCase() === questionForm.correctAnswer.trim().toLowerCase())) {
+        setError("Correct answer must exactly match one of the options.");
+        return;
+      }
+    } else {
+      if (!questionForm.codingDescription.trim()) {
+        setError("Coding problem description is required.");
+        return;
+      }
+      if (questionForm.testCases.some((testCase) => !testCase.input.trim() || !testCase.expectedOutput.trim())) {
+        setError("Both coding test cases must include input and expected output.");
+        return;
+      }
+    }
     setSavingQuestion(true);
     try {
       const payload = {
@@ -326,14 +357,11 @@ export default function HRManualTestBuilder() {
 
       if (field === "subject" || field === "sectionMode") {
         const info = subjectsInfo.find((subject) => subject.subject === next[index].subject);
-        const max = info
-          ? next[index].sectionMode === "COMPILER"
-            ? (info.compilerCount ?? 0)
-            : (info.noCompilerCount ?? info.count ?? 0)
-          : 0;
-        if (next[index].questionCount > Math.max(max, 1)) {
-          next[index].questionCount = Math.max(max, 1);
-        }
+        const max = getAvailableForSection(info, next[index].sectionMode);
+        next[index].questionCount = Math.min(
+          Math.max(next[index].questionCount || 1, 1),
+          Math.max(max, 1),
+        );
       }
 
       if (field === "sectionMode" && value === "NO_COMPILER") {
@@ -366,6 +394,27 @@ export default function HRManualTestBuilder() {
     if (chosenSections.length === 0) {
       setError("Add at least one assessment section.");
       return;
+    }
+    for (let index = 0; index < chosenSections.length; index += 1) {
+      const section = chosenSections[index];
+      const info = subjectsInfo.find((subject) => subject.subject === section.subject);
+      const available = getAvailableForSection(info, section.sectionMode);
+      if (!section.subject) {
+        setError(`Select a question bank for section ${index + 1}.`);
+        return;
+      }
+      if (available < 1) {
+        setError(`No ${section.sectionMode === "COMPILER" ? "compiler" : "no compiler"} questions are available for ${section.subject}.`);
+        return;
+      }
+      if (section.questionCount > available) {
+        setError(`Section ${index + 1} asks for ${section.questionCount} questions, but only ${available} are available.`);
+        return;
+      }
+      if (section.sectionMode === "COMPILER" && section.supportedLanguages.length === 0) {
+        setError(`Select at least one compiler language for section ${index + 1}.`);
+        return;
+      }
     }
 
     setSavingAssessment(true);

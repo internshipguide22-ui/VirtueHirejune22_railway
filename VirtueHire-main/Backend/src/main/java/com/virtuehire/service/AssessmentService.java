@@ -265,14 +265,7 @@ public class AssessmentService {
         }
 
         List<AssessmentQuestion> assessmentQuestions = aqRepo.findByAssessmentId(assessment.getId());
-        if (assessmentQuestions == null || assessmentQuestions.isEmpty()) {
-            return false;
-        }
-
-        return assessmentQuestions.stream()
-                .map(AssessmentQuestion::getQuestion)
-                .filter(Objects::nonNull)
-                .noneMatch(question -> "HR".equalsIgnoreCase(question.getCreatedByRole()));
+        return assessmentQuestions != null && !assessmentQuestions.isEmpty();
     }
 
     public List<String> getAssessmentSubjects(Assessment assessment) {

@@ -706,13 +706,13 @@ public class HrRestController {
 
             // Get section modes
             List<String> sectionModes = sections.stream()
-                    .map(AssessmentSection::getSectionMode)
+                    .map(section -> section.getSectionMode() != null ? section.getSectionMode() : "NO_COMPILER")
                     .distinct()
                     .toList();
 
             liveList.add(Map.of(
                     "id", a.getId(),
-                    "assessmentName", a.getAssessmentName(),
+                    "assessmentName", a.getAssessmentName() != null ? a.getAssessmentName() : "",
                     "description", a.getDescription() != null ? a.getDescription() : "",
                     "sectionCount", sections.size(),
                     "totalQuestions", totalQuestions,

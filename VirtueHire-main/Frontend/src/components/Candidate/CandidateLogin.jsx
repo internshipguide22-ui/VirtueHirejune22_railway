@@ -348,7 +348,9 @@ function CandidateLogin() {
         localStorage.setItem("candidate_token", res.data.token);
       }
       localStorage.setItem("user", JSON.stringify(loggedInUser));
+      localStorage.setItem("candidate", JSON.stringify(loggedInUser));
       localStorage.setItem("role", "Candidate");
+      localStorage.setItem("user_role", "candidate");
 
       showToast("✅ Login Successful as Candidate", "success");
       navigate("/candidates/welcome");

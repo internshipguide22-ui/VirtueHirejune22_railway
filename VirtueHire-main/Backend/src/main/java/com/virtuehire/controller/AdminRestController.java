@@ -680,13 +680,13 @@ public class AdminRestController {
 
             // Get section modes
             List<String> sectionModes = sections.stream()
-                    .map(AssessmentSection::getSectionMode)
+                    .map(section -> section.getSectionMode() != null ? section.getSectionMode() : "NO_COMPILER")
                     .distinct()
                     .toList();
 
             liveList.add(Map.of(
                     "id", assessment.getId(),
-                    "assessmentName", assessment.getAssessmentName(),
+                    "assessmentName", assessment.getAssessmentName() != null ? assessment.getAssessmentName() : "",
                     "description", assessment.getDescription() != null ? assessment.getDescription() : "",
                     "sectionCount", sections.size(),
                     "totalQuestions", totalQuestions,

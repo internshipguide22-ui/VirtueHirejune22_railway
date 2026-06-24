@@ -389,21 +389,21 @@ public class TestAllocationService {
         int questionCount = sections.stream().mapToInt(AssessmentSection::getQuestionCount).sum();
         List<Map<String, Object>> sectionDetails = sections.stream()
             .map(section -> Map.of(
-                "id", (Object) section.getId(),
+                "id", (Object) (section.getId() != null ? section.getId() : 0L),
                 "sectionNumber", (Object) section.getSectionNumber(),
-                "subject", (Object) section.getSubject(),
+                "subject", (Object) (section.getSubject() != null ? section.getSubject() : ""),
                 "questionCount", (Object) section.getQuestionCount(),
                 "sectionTime", (Object) section.getSectionTime(),
                 "passPercentage", (Object) section.getPassPercentage(),
-                "sectionMode", (Object) section.getSectionMode(),
+                "sectionMode", (Object) (section.getSectionMode() != null ? section.getSectionMode() : "NO_COMPILER"),
                 "supportedLanguages", (Object) (section.getSupportedLanguages() != null ? section.getSupportedLanguages() : "")
             ))
             .collect(Collectors.toList());
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("testId", assessment.getId());
-        summary.put("title", assessment.getAssessmentName());
-        summary.put("testName", assessment.getAssessmentName());
+        summary.put("title", assessment.getAssessmentName() != null ? assessment.getAssessmentName() : "");
+        summary.put("testName", assessment.getAssessmentName() != null ? assessment.getAssessmentName() : "");
         summary.put("description", assessment.getDescription() != null ? assessment.getDescription() : "");
         summary.put("questionCount", questionCount);
         summary.put("questions", questionCount);
