@@ -73,10 +73,10 @@ export default function VerifyEmail() {
   };
 
   const handleResendOtp = async () => {
-    if (!email || role.toLowerCase() === "hr") {
+    if (!email) {
       setStatus({
         type: "error",
-        msg: "Resend OTP is only available for candidate verification right now.",
+        msg: "Missing email. Please register again.",
       });
       return;
     }
@@ -85,7 +85,11 @@ export default function VerifyEmail() {
     setStatus({ type: "", msg: "" });
 
     try {
-      const response = await api.post("/candidates/resend-otp", { email });
+      const endpoint =
+        role.toLowerCase() === "hr"
+          ? "/hrs/resend-otp"
+          : "/candidates/resend-otp";
+      const response = await api.post(endpoint, { email });
       setStatus({ type: "success", msg: response.data.message });
     } catch (err) {
       setStatus({

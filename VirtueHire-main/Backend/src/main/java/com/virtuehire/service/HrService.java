@@ -2,14 +2,23 @@ package com.virtuehire.service;
 
 import com.virtuehire.model.Hr;
 import com.virtuehire.repository.HrRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class HrService {
+
+    private static final Logger logger = LoggerFactory.getLogger(HrService.class);
 
     private final HrRepository repo;
 
@@ -18,6 +27,18 @@ public class HrService {
 
     @org.springframework.beans.factory.annotation.Value("${app.mail.from:}")
     private String mailFrom;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.host:}")
+    private String mailHost;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.username:}")
+    private String mailUsername;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.mail.password:}")
+    private String mailPassword;
+
+    @org.springframework.beans.factory.annotation.Value("${BREVO_API_KEY:}")
+    private String brevoApiKey;
 
     public HrService(HrRepository repo) {
         this.repo = repo;
@@ -35,18 +56,12 @@ public class HrService {
         hr.setVerificationCode(code);
         repo.save(hr);
 
-        org.springframework.mail.SimpleMailMessage message = new org.springframework.mail.SimpleMailMessage();
-        if (mailFrom != null && !mailFrom.isBlank()) {
-            message.setFrom(mailFrom);
-        }
-        message.setTo(hr.getEmail());
-        message.setSubject("VirtueHire HR Verification");
-        message.setText("Hello " + hr.getFullName() + ",\n\n"
+        sendEmail(hr.getEmail(), "VirtueHire HR Verification",
+                "Hello " + hr.getFullName() + ",\n\n"
                 + "Please use the following code to verify your HR account:\n\n"
                 + "Verification Code: " + code + "\n\n"
                 + "Once verified, you'll have full access to the VirtueHire HR portal for 3 months, free of charge!\n\n"
                 + "Thank you,\nVirtueHire Team");
-        mailSender.send(message);
     }
 
     // ------------------ VERIFY EMAIL ------------------
@@ -63,19 +78,70 @@ public class HrService {
         return false;
     }
 
+    public void resendVerificationMail(String email) {
+        Hr hr = repo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("HR not found"));
+
+        if (Boolean.TRUE.equals(hr.getEmailVerified())) {
+            throw new RuntimeException("Email is already verified");
+        }
+
+        sendVerificationMail(hr);
+    }
+
     // ------------------ SEND APPROVAL MAIL ------------------
     public void sendApprovalMail(Hr hr) {
+        sendEmail(hr.getEmail(), "VirtueHire HR Account Approved",
+                "Hello " + hr.getFullName() + ",\n\n"
+                        + "Your HR account has been approved by the VirtueHire admin team.\n"
+                        + "You can now log in and access the HR portal.\n\n"
+                        + "Thank you,\nVirtueHire Team");
+    }
+
+    private void sendEmail(String to, String subject, String body) {
+        if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+            logger.info("Sending HR email to {} using Brevo REST API", to);
+            sendEmailWithBrevoApi(to, subject, body);
+            return;
+        }
+
+        if (mailUsername == null || mailUsername.isBlank() || mailPassword == null || mailPassword.isBlank()) {
+            throw new IllegalStateException(
+                    "Mail is not configured. Set MAIL_USERNAME and MAIL_PASSWORD, or set BREVO_API_KEY.");
+        }
+
+        logger.info("Sending HR email to {} using SMTP host {}", to, mailHost);
         org.springframework.mail.SimpleMailMessage message = new org.springframework.mail.SimpleMailMessage();
         if (mailFrom != null && !mailFrom.isBlank()) {
             message.setFrom(mailFrom);
         }
-        message.setTo(hr.getEmail());
-        message.setSubject("VirtueHire HR Account Approved");
-        message.setText("Hello " + hr.getFullName() + ",\n\n"
-                + "Your HR account has been approved by the VirtueHire admin team.\n"
-                + "You can now log in and access the HR portal.\n\n"
-                + "Thank you,\nVirtueHire Team");
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(body);
         mailSender.send(message);
+    }
+
+    private void sendEmailWithBrevoApi(String to, String subject, String body) {
+        String from = mailFrom != null && !mailFrom.isBlank() ? mailFrom : "no-reply@virtuehire.in";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        headers.set("api-key", brevoApiKey);
+        headers.set("X-Mailin-api-key", brevoApiKey);
+
+        Map<String, Object> payload = Map.of(
+                "sender", Map.of(
+                        "name", "VirtueHire",
+                        "email", from),
+                "to", List.of(Map.of("email", to)),
+                "subject", subject,
+                "textContent", body);
+
+        new RestTemplate().postForEntity(
+                "https://api.brevo.com/v3/smtp/email",
+                new HttpEntity<>(payload, headers),
+                String.class);
     }
 
     // ------------------ ACCESS CONTROL ------------------

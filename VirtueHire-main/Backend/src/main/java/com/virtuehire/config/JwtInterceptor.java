@@ -56,6 +56,7 @@ public class JwtInterceptor implements HandlerInterceptor {
                 path.startsWith("/api/hrs/login") ||
                 path.startsWith("/api/hrs/register") ||
                 path.startsWith("/api/hrs/verify-email") ||
+                path.startsWith("/api/hrs/resend-otp") ||
 
                 path.startsWith("/api/candidates/login") ||
                 path.startsWith("/api/candidates/register") ||

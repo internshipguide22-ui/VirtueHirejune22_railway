@@ -27,6 +27,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/hrs/login",
                         "/api/hrs/register",
                         "/api/hrs/verify-email",
+                        "/api/hrs/resend-otp",
                         "/api/candidates/login",
                         "/api/candidates/register",
                         "/api/candidates/verify-otp",

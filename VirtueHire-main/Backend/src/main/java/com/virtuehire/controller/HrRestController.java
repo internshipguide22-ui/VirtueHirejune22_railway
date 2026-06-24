@@ -26,8 +26,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -126,6 +128,44 @@ public class HrRestController {
         return ResponseEntity.ok(Map.of(
                 "message", message,
                 "emailSent", emailSent));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
+
+        try {
+            hrService.resendVerificationMail(email.trim());
+            return ResponseEntity.ok(Map.of("message", "A new HR verification OTP has been sent to your email."));
+        } catch (IllegalStateException ex) {
+            logger.error("HR OTP email is not configured for {}", email, ex);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error",
+                            "OTP email is not configured. Set MAIL_USERNAME and MAIL_PASSWORD, or set BREVO_API_KEY."));
+        } catch (MailException ex) {
+            logger.error("Failed to resend HR OTP email for {}", email, ex);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "Could not send HR OTP email right now. Please try again later."));
+        } catch (RestClientResponseException ex) {
+            String brevoError = "HTTP " + ex.getRawStatusCode() + " " + ex.getStatusText();
+            if (ex.getResponseBodyAsString() != null && !ex.getResponseBodyAsString().isBlank()) {
+                brevoError += ": " + ex.getResponseBodyAsString();
+            }
+            logger.error("Brevo API rejected HR OTP resend for {}: {}", email, brevoError, ex);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "Brevo rejected the HR OTP email: " + brevoError));
+        } catch (RuntimeException ex) {
+            String message = ex.getMessage() == null ? "Failed to resend HR OTP" : ex.getMessage();
+            HttpStatus status = "HR not found".equalsIgnoreCase(message)
+                    ? HttpStatus.NOT_FOUND
+                    : "Email is already verified".equalsIgnoreCase(message)
+                            ? HttpStatus.CONFLICT
+                            : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(Map.of("error", message));
+        }
     }
 
     // ------------------ VERIFY HR EMAIL ------------------
