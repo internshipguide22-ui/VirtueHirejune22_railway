@@ -101,6 +101,10 @@ export default function CandidateOtpVerification() {
           error.response?.data?.error ||
           "Failed to resend OTP. Please try again.",
       });
+      console.warn("OTP resend failed:", {
+        message: error.response?.data?.error,
+        mailError: error.response?.data?.mailError,
+      });
     } finally {
       setResending(false);
     }

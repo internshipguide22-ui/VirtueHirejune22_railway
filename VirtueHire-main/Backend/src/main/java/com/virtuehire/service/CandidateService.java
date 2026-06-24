@@ -14,6 +14,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -29,6 +31,8 @@ import java.util.stream.Collectors;
 @Service
 public class CandidateService {
 
+    private static final Logger logger = LoggerFactory.getLogger(CandidateService.class);
+
     private final CandidateRepository repo;
     private final AssessmentResultRepository assessmentResultRepository;
     private final PaymentRepository paymentRepository;
@@ -43,6 +47,15 @@ public class CandidateService {
 
     @Value("${app.mail.from:}")
     private String mailFrom;
+
+    @Value("${spring.mail.host:}")
+    private String mailHost;
+
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
+    @Value("${spring.mail.password:}")
+    private String mailPassword;
 
     @Value("${BREVO_API_KEY:}")
     private String brevoApiKey;
@@ -224,10 +237,17 @@ public class CandidateService {
 
     private void sendEmail(String to, String subject, String body) {
         if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+            logger.info("Sending email to {} using Brevo REST API", to);
             sendEmailWithBrevoApi(to, subject, body);
             return;
         }
 
+        if (mailUsername == null || mailUsername.isBlank() || mailPassword == null || mailPassword.isBlank()) {
+            throw new IllegalStateException(
+                    "Mail is not configured. Set MAIL_USERNAME and MAIL_PASSWORD, or set BREVO_API_KEY.");
+        }
+
+        logger.info("Sending email to {} using SMTP host {}", to, mailHost);
         SimpleMailMessage message = new SimpleMailMessage();
         if (mailFrom != null && !mailFrom.isBlank()) {
             message.setFrom(mailFrom);
@@ -243,8 +263,9 @@ public class CandidateService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("api-key", brevoApiKey);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        headers.set("api-key", brevoApiKey);
+        headers.set("X-Mailin-api-key", brevoApiKey);
 
         Map<String, Object> payload = Map.of(
                 "sender", Map.of(

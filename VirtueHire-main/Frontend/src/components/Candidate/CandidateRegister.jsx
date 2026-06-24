@@ -81,7 +81,18 @@ export default function CandidateRegister() {
       localStorage.setItem("pendingVerificationEmail", registeredEmail);
 
       if (res.data.emailSent === false) {
+        console.warn("OTP email was not sent:", {
+          message: responseMessage,
+          mailError: res.data.mailError,
+        });
         setError(responseMessage);
+        setTimeout(
+          () =>
+            navigate(
+              `/candidate/verify-otp?email=${encodeURIComponent(registeredEmail)}`,
+            ),
+          1600,
+        );
         return;
       }
 

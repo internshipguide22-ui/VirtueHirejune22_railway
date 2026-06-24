@@ -116,11 +116,23 @@ public class CandidateRestController {
         try {
             candidateService.sendVerificationMail(candidate);
             message += " Please check your email for the OTP.";
+        } catch (IllegalStateException ex) {
+            logger.error("Candidate registered but verification email is not configured for {}", candidate.getEmail(),
+                    ex);
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
+                    "error", "Candidate registered, but OTP email is not configured. Set MAIL_USERNAME and MAIL_PASSWORD, or set BREVO_API_KEY, then use Resend OTP.",
+                    "message", "Candidate registered, but OTP email is not configured. Set MAIL_USERNAME and MAIL_PASSWORD, or set BREVO_API_KEY, then use Resend OTP.",
+                    "requiresOtpVerification", true,
+                    "emailSent", false,
+                    "candidate", toCandidateResponse(candidate)));
         } catch (MailException ex) {
-            logger.error("Candidate registered but verification email failed for {}", candidate.getEmail(), ex);
+            String mailError = getMailErrorSummary(ex);
+            logger.error("Candidate registered but verification email failed for {}: {}", candidate.getEmail(),
+                    mailError, ex);
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
                     "error", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
                     "message", "Candidate registered, but we could not send the OTP email. Please check mail settings and use Resend OTP.",
+                    "mailError", mailError,
                     "requiresOtpVerification", true,
                     "emailSent", false,
                     "candidate", toCandidateResponse(candidate)));
@@ -500,10 +512,18 @@ public class CandidateRestController {
         try {
             candidateService.resendVerificationMail(email.trim());
             return ResponseEntity.ok(Map.of("message", "A new OTP has been sent to your email."));
-        } catch (MailException ex) {
-            logger.error("Failed to resend candidate OTP email for {}", email, ex);
+        } catch (IllegalStateException ex) {
+            logger.error("Candidate OTP email is not configured for {}", email, ex);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", "Could not send OTP email right now. Please try again later."));
+                    .body(Map.of("error",
+                            "OTP email is not configured. Set MAIL_USERNAME and MAIL_PASSWORD, or set BREVO_API_KEY."));
+        } catch (MailException ex) {
+            String mailError = getMailErrorSummary(ex);
+            logger.error("Failed to resend candidate OTP email for {}: {}", email, mailError, ex);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of(
+                            "error", "Could not send OTP email right now. Please try again later.",
+                            "mailError", mailError));
         } catch (RestClientResponseException ex) {
             String brevoError = "HTTP " + ex.getRawStatusCode() + " " + ex.getStatusText();
             logger.error("Brevo API rejected candidate OTP resend for {}: {}", email, brevoError, ex);
@@ -518,6 +538,24 @@ public class CandidateRestController {
                             : HttpStatus.BAD_REQUEST;
             return ResponseEntity.status(status).body(Map.of("error", message));
         }
+    }
+
+    private String getMailErrorSummary(Exception ex) {
+        Throwable cause = ex;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
+        String message = cause.getMessage();
+        if (message == null || message.isBlank()) {
+            message = ex.getMessage();
+        }
+        if (message == null || message.isBlank()) {
+            return "Mail provider rejected or could not complete the request.";
+        }
+
+        message = message.replaceAll("[\\r\\n]+", " ").trim();
+        return message.length() > 220 ? message.substring(0, 220) + "..." : message;
     }
 
     // ---------------------------
