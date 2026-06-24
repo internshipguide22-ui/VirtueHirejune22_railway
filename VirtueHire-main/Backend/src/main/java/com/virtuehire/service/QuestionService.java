@@ -302,15 +302,24 @@ public class QuestionService {
                 rawHeaders == null ? Set.of() : rawHeaders.keySet(), testName);
 
         List<Question> questions = new ArrayList<>();
+        int parsedQuestionRows = 0;
+        int duplicateRows = 0;
         for (CSVRecord record : csvParser) {
             Question q = buildQuestionFromRecord(record, testName, headerAliases, createdByRole, createdByHrId);
             if (q == null) continue;
-            if (!repo.existsByTextAndSubject(q.getText(), q.getSubject())) {
+            parsedQuestionRows++;
+            if (repo.existsByTextAndSubject(q.getText(), q.getSubject())) {
+                duplicateRows++;
+            } else {
                 questions.add(q);
             }
         }
 
         if (questions.isEmpty()) {
+            if (parsedQuestionRows > 0 && duplicateRows == parsedQuestionRows) {
+                throw new IllegalArgumentException(
+                        "All questions in this CSV already exist for the selected subject. No new questions were uploaded.");
+            }
             throw new IllegalArgumentException(
                     "No valid questions were found. Use either " +
                     "subject,text,option1,option2,option3,option4,correctAnswer or " +

@@ -269,6 +269,13 @@ const TestManager = ({ hr, onSuccess, apiBase = "/hrs" }) => {
       };
     }
 
+    if (/already exist|duplicate/i.test(message)) {
+      return {
+        title: "No New Questions Uploaded",
+        hint: "Use questions that are not already present for this subject.",
+      };
+    }
+
     return {
       title: "Invalid CSV Format",
       hint: "Please check the CSV structure and try again.",
