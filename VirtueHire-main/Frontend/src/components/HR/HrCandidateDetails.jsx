@@ -29,6 +29,7 @@ const STATUS_COPY = {
   NONE: "Contact Admin to view full details",
   PENDING: "Your access request is pending admin approval",
   APPROVED: "Full details available",
+  TRIAL: "Full details available",
   REJECTED: "Your access request was rejected"
 };
 
@@ -86,8 +87,9 @@ function HrCandidateDetails() {
   const loadSummary = async () => {
     const summaryRes = await api.get(`/hrs/candidates/${id}/summary`);
     setCandidate(summaryRes.data.candidate || null);
-    setRequestStatus(summaryRes.data.requestStatus || "NONE");
-    setHasAccess(true);
+    const accessAllowed = Boolean(summaryRes.data.hasAccess ?? summaryRes.data.accessAllowed);
+    setRequestStatus(summaryRes.data.requestStatus || (accessAllowed ? "TRIAL" : "NONE"));
+    setHasAccess(accessAllowed);
   };
 
   const loadCumulativeResults = async () => {
@@ -111,11 +113,11 @@ function HrCandidateDetails() {
       const detailRes = await api.get(`/hrs/candidates/${id}`);
       setCandidate(detailRes.data.candidate || null);
       setDetailedResults(detailRes.data.detailedResults || []);
+      const detailAccessAllowed = Boolean(detailRes.data.hasAccess ?? detailRes.data.canView ?? true);
+      setHasAccess(detailAccessAllowed);
+      setRequestStatus(detailRes.data.requestStatus || (detailAccessAllowed ? "TRIAL" : "NONE"));
 
       await loadCumulativeResults();
-
-      setHasAccess(true);
-      setRequestStatus(detailRes.data.requestStatus || "APPROVED");
     } catch (err) {
       if (err.response?.status === 403) {
         setDetailedResults([]);
@@ -197,17 +199,17 @@ function HrCandidateDetails() {
   };
 
   const accessTone = useMemo(() => {
-    if (requestStatus === "APPROVED") return "approved";
+    if (requestStatus === "APPROVED" || requestStatus === "TRIAL") return "approved";
     if (requestStatus === "PENDING") return "pending";
     return "restricted";
   }, [requestStatus]);
 
-  const canRequestAccess = requestStatus !== "PENDING" && requestStatus !== "APPROVED";
+  const canRequestAccess = !hasAccess && requestStatus !== "PENDING" && requestStatus !== "APPROVED";
   const canUseHrModule = !subscription?.isExpired;
 
-  const canAccessResume = hasAccess && requestStatus === "APPROVED" && Boolean(candidate?.resumePath);
+  const canAccessResume = hasAccess && Boolean(candidate?.resumePath);
   const canAccessProfileImage =
-    hasAccess && requestStatus === "APPROVED" && Boolean(candidate?.profilePic);
+    hasAccess && Boolean(candidate?.profilePic);
   const resumeName = getResumeFileName(candidate?.resumePath);
   const profileImageName = getResumeFileName(candidate?.profilePic);
   const profileImageUrl = canAccessProfileImage && profileImageObjectUrl
@@ -277,7 +279,13 @@ function HrCandidateDetails() {
     try {
       await action();
     } catch (err) {
-      setError(err.response?.data?.error || "Unable to open the requested file. Please refresh and try again.");
+      if (err.response?.status === 404) {
+        setError("The uploaded file is not available on the server. Ask the candidate to upload it again.");
+      } else if (err.response?.status === 403) {
+        setError("Your HR access is not active for this file. Please check your trial or plan status.");
+      } else {
+        setError(err.response?.data?.error || "Unable to open the requested file. Please refresh and try again.");
+      }
     } finally {
       setFileLoading((current) => ({ ...current, [key]: false }));
     }
@@ -374,9 +382,9 @@ function HrCandidateDetails() {
               </div>
             </div>
             <span className={`hcd-status-pill ${accessTone}`}>
-              {requestStatus === "APPROVED" ? <CheckCircle2 size={14} /> :
+              {requestStatus === "APPROVED" || requestStatus === "TRIAL" ? <CheckCircle2 size={14} /> :
                 requestStatus === "PENDING" ? <Clock3 size={14} /> :
-                  <Lock size={14} />}
+                <Lock size={14} />}
               {STATUS_COPY[requestStatus] || STATUS_COPY.NONE}
             </span>
           </div>

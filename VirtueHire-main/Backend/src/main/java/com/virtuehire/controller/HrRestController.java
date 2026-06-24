@@ -361,8 +361,10 @@ public class HrRestController {
         }
 
         Candidate candidate = candidateService.findById(candidateId).orElse(null);
-        if (candidate == null || candidate.getResumePath() == null)
+        if (candidate == null || candidate.getResumePath() == null || candidate.getResumePath().isBlank()) {
+            logger.warn("HR resume request returned 404 because candidate {} has no resumePath", candidateId);
             return ResponseEntity.notFound().build();
+        }
 
         try {
             return serveStoredFile(candidate.getResumePath(), disposition);
