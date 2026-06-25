@@ -29,6 +29,24 @@ CORS_ALLOWED_ORIGIN_PATTERNS=https://admin.virtuehire.in,https://your-frontend-d
 
 Attach a Railway volume to the backend at `/app/uploads`.
 
+Production defaults avoid forcing a database connection during boot, so the
+service can start even if Railway MySQL is still waking up. After your schema
+exists, keep these defaults:
+
+```text
+DB_DDL_AUTO=none
+DATABASE_SCHEMA_FIXER_ENABLED=false
+```
+
+For a first-time empty database only, temporarily deploy once with:
+
+```text
+DB_DDL_AUTO=update
+HIBERNATE_ALLOW_JDBC_METADATA_ACCESS=true
+```
+
+Then set them back to the production values above.
+
 For compiler functionality, also set:
 
 ```text
