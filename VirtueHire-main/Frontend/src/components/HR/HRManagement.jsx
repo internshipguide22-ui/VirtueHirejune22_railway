@@ -107,6 +107,14 @@ export default function HRManagement() {
   };
 
   const handleViewIdProof = async (hr) => {
+    if (hr.idProofPath && hr.idProofAvailable === false) {
+      showMsg(
+        "error",
+        "This HR account has an ID proof record, but the stored file is missing. Ask the HR to upload the ID proof again.",
+      );
+      return;
+    }
+
     try {
       const response = await api.get(`/admin/hrs/${hr.id}/id-proof`, {
         responseType: "blob",
@@ -271,7 +279,7 @@ export default function HRManagement() {
                         </div>
                       </td>
                       <td>
-                        {hr.idProofPath ? (
+                        {hr.idProofPath && hr.idProofAvailable === true ? (
                           <button
                             type="button"
                             onClick={() => handleViewIdProof(hr)}
@@ -280,6 +288,10 @@ export default function HRManagement() {
                             <ExternalLink size={16} />
                             View Document
                           </button>
+                        ) : hr.idProofPath ? (
+                          <span className="hrm-no-proof">
+                            File Missing
+                          </span>
                         ) : (
                           <span className="hrm-no-proof">
                             No Proof Uploaded

@@ -285,6 +285,7 @@ export default function CandidatesList() {
                           <img
                             src={
                               candidate.profilePic
+                              && candidate.profilePicAvailable === true
                                 ? getApiUrl(`/admin/candidates/${candidate.id}/profile-picture?disposition=inline`)
                                 : DEFAULT_PROFILE_IMAGE
                             }
@@ -351,7 +352,7 @@ export default function CandidatesList() {
                         >
                           <Eye size={16} />
                         </Link>
-                        {candidate.resumePath ? (
+                        {candidate.resumePath && candidate.resumeAvailable === true ? (
                           <button
                             type="button"
                             className="adm-t-btn secondary"

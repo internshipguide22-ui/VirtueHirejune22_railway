@@ -1,6 +1,7 @@
 package com.virtuehire.controller;
 
 import com.virtuehire.model.*;
+import com.virtuehire.repository.CandidateAnswerRepository;
 import com.virtuehire.repository.AssessmentSectionRepository;
 import com.virtuehire.service.*;
 import com.virtuehire.util.StoragePathResolver;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +45,7 @@ public class AdminRestController {
     private final AssessmentResultService assessmentResultService;
     private final AssessmentService assessmentService;
     private final AssessmentSectionRepository assessmentSectionRepository;
+    private final CandidateAnswerRepository candidateAnswerRepository;
     private final AdminNotificationService adminNotificationService;
     private final HiringWorkflowService hiringWorkflowService;
     private final TestAllocationService testAllocationService;
@@ -53,6 +56,7 @@ public class AdminRestController {
             QuestionService questionService,
             AssessmentResultService assessmentResultService, AssessmentService assessmentService,
             AssessmentSectionRepository assessmentSectionRepository,
+            CandidateAnswerRepository candidateAnswerRepository,
             AdminNotificationService adminNotificationService,
             HiringWorkflowService hiringWorkflowService,
             TestAllocationService testAllocationService,
@@ -65,6 +69,7 @@ public class AdminRestController {
         this.assessmentResultService = assessmentResultService;
         this.assessmentService = assessmentService;
         this.assessmentSectionRepository = assessmentSectionRepository;
+        this.candidateAnswerRepository = candidateAnswerRepository;
         this.adminNotificationService = adminNotificationService;
         this.hiringWorkflowService = hiringWorkflowService;
         this.testAllocationService = testAllocationService;
@@ -152,7 +157,7 @@ public class AdminRestController {
         }
 
         Map<String, Object> response = new HashMap<>();
-        response.put("hrs", hrs);
+        response.put("hrs", hrs.stream().map(this::toAdminHrPayload).toList());
         response.put("filter", filter);
 
         return ResponseEntity.ok(response);
@@ -853,11 +858,7 @@ public class AdminRestController {
             return ResponseEntity.notFound().build();
         }
 
-        Path alternateDir = getAlternateUploadDir();
-        boolean inUploadDir = path.startsWith(uploadDir);
-        boolean inAlternateDir = alternateDir != null && path.startsWith(alternateDir);
-
-        if (!inUploadDir && !inAlternateDir) {
+        if (!isAllowedStoredFilePath(path)) {
             logger.warn("Admin file path outside allowed directories: {}", path);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -883,35 +884,22 @@ public class AdminRestController {
     }
 
     private Path resolveStoredFilePath(String storedFileName) {
-        Path primaryPath = uploadDir.resolve(storedFileName).normalize();
-        if (Files.exists(primaryPath) && Files.isReadable(primaryPath)) {
-            return primaryPath;
-        }
-
-        Path alternateUploadDir = getAlternateUploadDir();
-        if (alternateUploadDir != null) {
-            Path alternatePath = alternateUploadDir.resolve(storedFileName).normalize();
-            if (Files.exists(alternatePath) && Files.isReadable(alternatePath)) {
-                return alternatePath;
+        for (Path dir : getCandidateUploadDirs()) {
+            Path path = dir.resolve(storedFileName).normalize();
+            if (Files.exists(path) && Files.isReadable(path)) {
+                return path;
             }
         }
 
         Path fuzzyMatch = findMatchingStoredFile(storedFileName);
-        return fuzzyMatch != null ? fuzzyMatch : primaryPath;
+        return fuzzyMatch != null ? fuzzyMatch : uploadDir.resolve(storedFileName).normalize();
     }
 
     private Path findMatchingStoredFile(String storedFileName) {
         String normalizedRequestedName = extractFileName(storedFileName);
         String requestedOriginalName = getOriginalFileName(normalizedRequestedName);
 
-        List<Path> candidateDirs = new ArrayList<>();
-        candidateDirs.add(uploadDir);
-        Path alternateUploadDir = getAlternateUploadDir();
-        if (alternateUploadDir != null && !alternateUploadDir.equals(uploadDir)) {
-            candidateDirs.add(alternateUploadDir);
-        }
-
-        for (Path dir : candidateDirs) {
+        for (Path dir : getCandidateUploadDirs()) {
             if (dir == null || !Files.isDirectory(dir)) {
                 continue;
             }
@@ -936,6 +924,46 @@ public class AdminRestController {
         }
 
         return null;
+    }
+
+    private List<Path> getCandidateUploadDirs() {
+        LinkedHashSet<Path> dirs = new LinkedHashSet<>();
+        Path configured = uploadDir.toAbsolutePath().normalize();
+        dirs.add(configured);
+
+        Path alternateUploadDir = getAlternateUploadDir();
+        if (alternateUploadDir != null) {
+            dirs.add(alternateUploadDir.toAbsolutePath().normalize());
+        }
+
+        Path workingDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        dirs.add(workingDir.resolve("uploads").normalize());
+        dirs.add(workingDir.resolve("Backend").resolve("uploads").normalize());
+        if (workingDir.getParent() != null) {
+            dirs.add(workingDir.getParent().resolve("uploads").normalize());
+            dirs.add(workingDir.getParent().resolve("Backend").resolve("uploads").normalize());
+        }
+        dirs.add(Paths.get("/app/uploads").toAbsolutePath().normalize());
+        dirs.add(Paths.get("/app/Backend/uploads").toAbsolutePath().normalize());
+
+        return new ArrayList<>(dirs);
+    }
+
+    private boolean isAllowedStoredFilePath(Path path) {
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        return getCandidateUploadDirs().stream()
+                .map(dir -> dir.toAbsolutePath().normalize())
+                .anyMatch(normalizedPath::startsWith);
+    }
+
+    private boolean isStoredFileAvailable(String storedFileName) {
+        String normalizedStoredFileName = extractFileName(storedFileName);
+        if (normalizedStoredFileName.isBlank()) {
+            return false;
+        }
+
+        Path path = resolveStoredFilePath(normalizedStoredFileName);
+        return path != null && isAllowedStoredFilePath(path) && Files.exists(path) && Files.isReadable(path);
     }
 
     private Path getAlternateUploadDir() {
@@ -995,6 +1023,8 @@ public class AdminRestController {
         data.put("skills", candidate.getSkills());
         data.put("resumePath", candidate.getResumePath());
         data.put("profilePic", candidate.getProfilePic());
+        data.put("resumeAvailable", isStoredFileAvailable(candidate.getResumePath()));
+        data.put("profilePicAvailable", isStoredFileAvailable(candidate.getProfilePic()));
         data.put("badge", candidate.getBadge());
         data.put("approved", candidate.getApproved());
         data.put("emailVerified", candidate.getEmailVerified());
@@ -1033,16 +1063,21 @@ public class AdminRestController {
 
         Optional<AssessmentSection> section = assessmentSectionRepository
                 .findByAssessmentNameAndSectionNumber(result.getSubject(), result.getLevel());
-        int totalQuestions = section.map(AssessmentSection::getQuestionCount).orElse(0);
+        Map<String, Integer> answerCounts = getAnswerCounts(result);
+        int totalQuestions = answerCounts.get("totalQuestions") > 0
+                ? answerCounts.get("totalQuestions")
+                : section.map(AssessmentSection::getQuestionCount).orElse(0);
         Integer correctCount = totalQuestions > 0
-                ? (int) Math.round((result.getScore() / 100.0) * totalQuestions)
+                ? answerCounts.get("totalQuestions") > 0
+                        ? answerCounts.get("correctCount")
+                        : (int) Math.round((result.getScore() / 100.0) * totalQuestions)
                 : null;
 
         data.put("sectionName", section.map(AssessmentSection::getSubject).orElse("Section " + result.getLevel()));
         data.put("totalQuestions", totalQuestions > 0 ? totalQuestions : null);
         data.put("correctCount", correctCount);
         data.put("scoreDisplay", correctCount != null
-                ? correctCount + " of " + totalQuestions + " correct (" + result.getScore() + "%)"
+                ? correctCount + "/" + totalQuestions + " correct (" + result.getScore() + "%)"
                 : result.getScore() + "%");
         return data;
     }
@@ -1068,16 +1103,26 @@ public class AdminRestController {
         int totalQuestions = 0;
 
         for (AssessmentResult result : assessmentResultService.getCandidateResults(candidateId)) {
-            int sectionQuestions = assessmentSectionRepository
-                    .findByAssessmentNameAndSectionNumber(result.getSubject(), result.getLevel())
-                    .map(AssessmentSection::getQuestionCount)
-                    .orElse(0);
-            if (sectionQuestions <= 0) {
+            Map<String, Integer> answerCounts = getAnswerCounts(result);
+            int resultTotalQuestions = answerCounts.get("totalQuestions");
+            int resultCorrectCount = answerCounts.get("correctCount");
+
+            if (resultTotalQuestions <= 0) {
+                resultTotalQuestions = assessmentSectionRepository
+                        .findByAssessmentNameAndSectionNumber(result.getSubject(), result.getLevel())
+                        .map(AssessmentSection::getQuestionCount)
+                        .orElse(0);
+                resultCorrectCount = resultTotalQuestions > 0
+                        ? (int) Math.round((result.getScore() / 100.0) * resultTotalQuestions)
+                        : 0;
+            }
+
+            if (resultTotalQuestions <= 0) {
                 continue;
             }
 
-            totalQuestions += sectionQuestions;
-            correctCount += (int) Math.round((result.getScore() / 100.0) * sectionQuestions);
+            totalQuestions += resultTotalQuestions;
+            correctCount += resultCorrectCount;
         }
 
         if (totalQuestions <= 0) {
@@ -1094,6 +1139,45 @@ public class AdminRestController {
                 "totalQuestions", totalQuestions,
                 "percentage", percentage,
                 "display", correctCount + "/" + totalQuestions + " correct (" + percentage + "%)");
+    }
+
+    private Map<String, Integer> getAnswerCounts(AssessmentResult result) {
+        if (result == null || result.getId() == null) {
+            return Map.of("correctCount", 0, "totalQuestions", 0);
+        }
+
+        List<CandidateAnswer> answers = candidateAnswerRepository.findByResultId(result.getId());
+        if (answers == null || answers.isEmpty()) {
+            return Map.of("correctCount", 0, "totalQuestions", 0);
+        }
+
+        int correctCount = (int) answers.stream().filter(CandidateAnswer::isCorrect).count();
+        return Map.of(
+                "correctCount", correctCount,
+                "totalQuestions", answers.size());
+    }
+
+    private Map<String, Object> toAdminHrPayload(Hr hr) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", hr.getId());
+        data.put("fullName", hr.getFullName());
+        data.put("email", hr.getEmail());
+        data.put("phoneNumber", hr.getPhoneNumber());
+        data.put("companyName", hr.getCompanyName());
+        data.put("jobTitle", hr.getJobTitle());
+        data.put("companyWebsite", hr.getCompanyWebsite());
+        data.put("industry", hr.getIndustry());
+        data.put("city", hr.getCity());
+        data.put("state", hr.getState());
+        data.put("idProofPath", hr.getIdProofPath());
+        data.put("idProofAvailable", isStoredFileAvailable(hr.getIdProofPath()));
+        data.put("planType", hr.getPlanType());
+        data.put("planExpiryDate", hr.getPlanExpiryDate());
+        data.put("remainingViews", hr.getRemainingViews());
+        data.put("verified", hr.getVerified());
+        data.put("emailVerified", hr.getEmailVerified());
+        data.put("registeredAt", hr.getRegisteredAt());
+        return data;
     }
 
     private int asInt(Object value, int fallback) {

@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   BadgeCheck,
   Briefcase,
-  CheckCircle2,
   Download,
   FileText,
   Mail,
@@ -258,11 +257,11 @@ export default function CandidateDetails() {
   };
 
   const skills = useMemo(() => splitSkills(candidate?.skills || ""), [candidate?.skills]);
-  const resumeUrl = candidate?.resumePath
+  const resumeUrl = candidate?.resumePath && candidate?.resumeAvailable === true
     ? getApiUrl(`/admin/candidates/${id}/resume?disposition=inline`)
     : "";
   const resumeDownloadUrl = getApiUrl(`/admin/download/resume/${id}`);
-  const profileImageUrl = candidate?.profilePic
+  const profileImageUrl = candidate?.profilePic && candidate?.profilePicAvailable === true
     ? getApiUrl(`/admin/candidates/${id}/profile-picture?disposition=inline`)
     : "";
   const resumeName = getResumeFileName(candidate?.resumePath);
@@ -330,7 +329,7 @@ export default function CandidateDetails() {
           <div className="adm-card adm-card-section">
             <div className="adm-candidate-profile">
               <div className="adm-candidate-avatar">
-                {candidate.profilePic ? (
+                {profileImageUrl ? (
                   <img
                     src={profileImageUrl}
                     alt={candidate.fullName}
@@ -395,7 +394,7 @@ export default function CandidateDetails() {
             </div>
             <div className="adm-summary-grid">
               <div className="adm-summary-stat">
-                <strong>{candidate.scoreDisplay || (candidate.score != null ? `${candidate.score}%` : "N/A")}</strong>
+                <strong>{candidate.assessmentMarkDisplay || candidate.scoreDisplay || (candidate.score != null ? `${candidate.score}%` : "N/A")}</strong>
                 <span>Latest Score</span>
               </div>
               <div className="adm-summary-stat">
@@ -700,16 +699,20 @@ export default function CandidateDetails() {
                         <Download size={16} /> Download Resume
                       </a>
                     </div>
+                  ) : candidate.resumePath ? (
+                    <div className="adm-empty-note">Stored resume file is missing. Ask the candidate to upload it again.</div>
                   ) : null}
                 </div>
 
                 <div className="adm-file-card">
                   <h4><User size={14} style={{ verticalAlign: "middle", marginRight: 6 }} /> Profile Image</h4>
                   <p>{candidate.profilePic || "No profile image uploaded."}</p>
-                  {candidate.profilePic ? (
+                  {profileImageUrl ? (
                     <a href={profileImageUrl} className="adm-btn-ghost" target="_blank" rel="noreferrer">
                       View Image
                     </a>
+                  ) : candidate.profilePic ? (
+                    <div className="adm-empty-note">Stored profile image is missing.</div>
                   ) : null}
                 </div>
               </div>
