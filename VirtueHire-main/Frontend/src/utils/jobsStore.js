@@ -54,9 +54,9 @@ const cacheApiJobs = (jobs) => {
   return normalizedJobs;
 };
 
-export const loadJobs = async () => {
+export const loadJobs = async ({ includeResponses = false } = {}) => {
   try {
-    const response = await api.get("/jobs");
+    const response = await api.get(`/jobs${includeResponses ? "?includeResponses=true" : ""}`);
     const apiJobs = normalizeJobs(Array.isArray(response.data) ? response.data : []);
     const cachedJobs = getJobs();
     if (apiJobs.length === 0 && cachedJobs.length > 0) {
@@ -107,7 +107,7 @@ const createLocalJob = (payload) => {
 export const createJob = async (payload) => {
   try {
     const response = await api.post("/jobs", payload);
-    await loadJobs();
+    await loadJobs({ includeResponses: true });
     return normalizeJob(response.data);
   } catch (error) {
     console.warn("Saving job locally because API create failed.", error);
@@ -135,7 +135,7 @@ const updateLocalJob = (jobId, payload) => {
 export const updateJob = async (jobId, payload) => {
   try {
     const response = await api.put(`/jobs/${jobId}`, payload);
-    await loadJobs();
+    await loadJobs({ includeResponses: true });
     return normalizeJob(response.data);
   } catch (error) {
     console.warn("Updating job locally because API update failed.", error);
@@ -152,7 +152,7 @@ const deleteLocalJob = (jobId) => {
 export const deleteJob = async (jobId) => {
   try {
     await api.delete(`/jobs/${jobId}`);
-    await loadJobs();
+    await loadJobs({ includeResponses: true });
   } catch (error) {
     console.warn("Deleting job locally because API delete failed.", error);
     deleteLocalJob(jobId);
@@ -163,7 +163,7 @@ export const updateJobStatus = async (jobId, status) => {
   if (!Object.values(JOB_STATUS).includes(status)) return null;
   try {
     const response = await api.patch(`/jobs/${jobId}/status`, { status });
-    await loadJobs();
+    await loadJobs({ includeResponses: true });
     return normalizeJob(response.data);
   } catch (error) {
     console.warn("Updating job status locally because API update failed.", error);
@@ -230,7 +230,7 @@ export const setCandidateJobInterest = async (jobId, candidate, status) => {
 
   try {
     const response = await api.post(`/jobs/${jobId}/responses`, { status });
-    await loadJobs();
+    await loadJobs({ includeResponses: true });
     return response.data || { updated: true, status };
   } catch (error) {
     if (error.response?.status === 409) {

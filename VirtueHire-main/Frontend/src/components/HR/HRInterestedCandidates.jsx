@@ -70,7 +70,7 @@ export default function HRInterestedCandidates() {
 
   useEffect(() => {
     setInterestedCandidates(getAllInterestedCandidates());
-    loadJobs().then(() => setInterestedCandidates(getAllInterestedCandidates()));
+    loadJobs({ includeResponses: true }).then(() => setInterestedCandidates(getAllInterestedCandidates()));
     const unsubscribeJobs = subscribeJobs(() =>
       setInterestedCandidates(getAllInterestedCandidates()),
     );

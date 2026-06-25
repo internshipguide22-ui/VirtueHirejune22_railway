@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
@@ -44,8 +45,10 @@ public class JobRestController {
     }
 
     @GetMapping
-    public ResponseEntity<?> listJobs() {
-        return ResponseEntity.ok(withCandidateResponses(jobPostRepository.findAllByOrderByCreatedAtDesc()));
+    public ResponseEntity<?> listJobs(
+            @RequestParam(value = "includeResponses", defaultValue = "false") boolean includeResponses) {
+        List<JobPost> jobs = jobPostRepository.findAllByOrderByCreatedAtDesc();
+        return ResponseEntity.ok(includeResponses ? withCandidateResponses(jobs) : jobs);
     }
 
     @PostMapping

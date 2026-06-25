@@ -327,17 +327,33 @@ public class AssessmentService {
 
     @Transactional
     public void deleteAssessment(Long id) {
+        deleteAssessment(id, false);
+    }
+
+    @Transactional
+    public void deleteAssessment(Long id, boolean deleteUnlinkedQuestions) {
         Assessment assessment = assessmentRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
 
         List<AssessmentQuestion> aqs = aqRepo.findByAssessmentId(id);
+        Set<Long> questionIds = aqs.stream()
+                .map(AssessmentQuestion::getQuestion)
+                .filter(Objects::nonNull)
+                .map(Question::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         aqRepo.deleteAll(aqs);
+        aqRepo.flush();
 
         List<AssessmentSection> sections = sectionRepo.findByAssessmentIdOrderBySectionNumberAsc(id);
         sectionRepo.deleteAll(sections);
 
         resultRepo.deleteBySubjectIgnoreCase(assessment.getAssessmentName());
         assessmentRepo.delete(assessment);
+
+        if (deleteUnlinkedQuestions) {
+            questionIds.forEach(questionService::deleteQuestionIfUnlinked);
+        }
     }
 
     @Transactional

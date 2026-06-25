@@ -489,6 +489,7 @@ const TestManager = ({ hr, onSuccess, apiBase = "/hrs" }) => {
     { ...DEFAULT_SECTION },
   ]);
   const [savingAssessment, setSavingAssessment] = useState(false);
+  const [deletingSubject, setDeletingSubject] = useState("");
 
   const addSection = () => {
     setChosenSections((prev) => [...prev, { ...DEFAULT_SECTION }]);
@@ -599,6 +600,42 @@ const TestManager = ({ hr, onSuccess, apiBase = "/hrs" }) => {
       );
     } finally {
       setSavingAssessment(false);
+    }
+  };
+
+  const handleDeleteQuestionBank = async (subject) => {
+    if (apiBase !== "/admin" || !subject) return;
+
+    const confirmed = window.confirm(
+      `Delete all unused question rows for "${subject}" from the database? Questions still used by active assessments will be skipped.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingSubject(subject);
+    try {
+      const response = await api.delete(`${apiBase}/questions/bank`, {
+        params: { subject },
+        withCredentials: true,
+      });
+      const deletedCount = response.data?.deletedCount ?? 0;
+      const skippedCount = response.data?.skippedCount ?? 0;
+      addToast(
+        `Deleted ${deletedCount} question${deletedCount === 1 ? "" : "s"} from ${subject}. ${skippedCount} still linked question${skippedCount === 1 ? " was" : "s were"} skipped.`,
+        skippedCount > 0 ? "info" : "success",
+      );
+      fetchSubjectsInfo();
+      setChosenSections((prev) =>
+        prev.map((section) =>
+          section.subject === subject ? { ...section, subject: "" } : section,
+        ),
+      );
+    } catch (err) {
+      addToast(
+        getApiErrorMessage(err, "Failed to delete question bank."),
+        "error",
+      );
+    } finally {
+      setDeletingSubject("");
     }
   };
 
@@ -906,6 +943,51 @@ const TestManager = ({ hr, onSuccess, apiBase = "/hrs" }) => {
       {/* ════════════════════════════════════════════════════
           SECTION 2 — ASSESSMENT CREATION
           ════════════════════════════════════════════════════ */}
+      {apiBase === "/admin" && allSubjectsInfo.length > 0 && (
+        <div className="tm-card">
+          <div className="tm-card-head">
+            <div className="tm-card-icon tm-icon-indigo">
+              <i className="fas fa-database" />
+            </div>
+            <div>
+              <h3 className="tm-card-title">Question Bank Subjects</h3>
+              <p className="tm-card-desc">
+                Remove unused question rows from the database by subject.
+              </p>
+            </div>
+          </div>
+          <div className="tm-subject-cleanup-list">
+            {allSubjectsInfo.map((subjectInfo) => (
+              <div key={subjectInfo.subject} className="tm-subject-cleanup-row">
+                <div>
+                  <strong>{subjectInfo.subject}</strong>
+                  <span>
+                    {subjectInfo.noCompilerCount ?? subjectInfo.count ?? 0} no compiler,{" "}
+                    {subjectInfo.compilerCount ?? 0} compiler
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="tm-btn tm-btn-danger"
+                  onClick={() => handleDeleteQuestionBank(subjectInfo.subject)}
+                  disabled={deletingSubject === subjectInfo.subject}
+                >
+                  {deletingSubject === subjectInfo.subject ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin" /> Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-trash" /> Delete Bank
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="tm-card tm-card-assessment">
         <div className="tm-card-head">
           <div className="tm-card-icon tm-icon-indigo">

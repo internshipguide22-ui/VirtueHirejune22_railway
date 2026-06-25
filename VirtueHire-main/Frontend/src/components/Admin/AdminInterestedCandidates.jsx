@@ -20,7 +20,7 @@ export default function AdminInterestedCandidates() {
 
   useEffect(() => {
     setInterestedCandidates(getAllInterestedCandidates());
-    loadJobs().then(() => setInterestedCandidates(getAllInterestedCandidates()));
+    loadJobs({ includeResponses: true }).then(() => setInterestedCandidates(getAllInterestedCandidates()));
     const unsubscribeJobs = subscribeJobs(() =>
       setInterestedCandidates(getAllInterestedCandidates()),
     );

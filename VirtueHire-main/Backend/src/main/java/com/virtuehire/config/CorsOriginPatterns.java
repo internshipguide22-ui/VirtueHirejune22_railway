@@ -21,7 +21,9 @@ final class CorsOriginPatterns {
         if (configuredPatterns != null) {
             Arrays.stream(configuredPatterns)
                     .filter(pattern -> pattern != null && !pattern.isBlank())
+                    .flatMap(pattern -> Arrays.stream(pattern.split(",")))
                     .map(String::trim)
+                    .filter(pattern -> !pattern.isBlank())
                     .forEach(patterns::add);
         }
         return new ArrayList<>(patterns);

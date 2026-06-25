@@ -51,8 +51,44 @@ public class QuestionService {
         repo.save(q);
     }
 
+    @Transactional
     public void deleteQuestionViaRepository(Long id) {
-        repo.deleteById(id);
+        deleteQuestionAndArtifacts(id, true);
+    }
+
+    @Transactional
+    public boolean deleteQuestionIfUnlinked(Long id) {
+        if (id == null || assessmentQuestionRepo.existsByQuestion_Id(id)) {
+            return false;
+        }
+
+        deleteQuestionAndArtifacts(id, false);
+        return true;
+    }
+
+    @Transactional
+    public Map<String, Object> deleteQuestionBankSubject(String subject) {
+        if (subject == null || subject.trim().isBlank()) {
+            throw new RuntimeException("Subject is required");
+        }
+
+        List<Question> questions = repo.findBySubject(subject.trim());
+        int deletedCount = 0;
+        int skippedCount = 0;
+
+        for (Question question : questions) {
+            if (question.getId() != null && deleteQuestionIfUnlinked(question.getId())) {
+                deletedCount++;
+            } else {
+                skippedCount++;
+            }
+        }
+
+        return Map.of(
+                "subject", subject.trim(),
+                "deletedCount", deletedCount,
+                "skippedCount", skippedCount,
+                "totalCount", questions.size());
     }
 
     // ───────────────────────────────────────────────────────────
@@ -673,6 +709,22 @@ public class QuestionService {
         }
 
         if (assessmentQuestionRepo.existsByQuestion_Id(questionId)) {
+            throw new RuntimeException("This question is already used in an assessment and cannot be deleted");
+        }
+
+        deleteQuestionAndArtifacts(questionId, false);
+    }
+
+    private void deleteQuestionAndArtifacts(Long questionId, boolean removeAssessmentLinks) {
+        Question question = repo.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found"));
+
+        if (removeAssessmentLinks) {
+            List<AssessmentQuestion> links = assessmentQuestionRepo.findByQuestion_Id(questionId);
+            if (!links.isEmpty()) {
+                assessmentQuestionRepo.deleteAll(links);
+            }
+        } else if (assessmentQuestionRepo.existsByQuestion_Id(questionId)) {
             throw new RuntimeException("This question is already used in an assessment and cannot be deleted");
         }
 

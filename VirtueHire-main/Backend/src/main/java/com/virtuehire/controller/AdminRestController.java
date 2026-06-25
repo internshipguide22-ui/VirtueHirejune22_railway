@@ -680,6 +680,22 @@ public class AdminRestController {
         }
     }
 
+    @DeleteMapping("/questions/bank")
+    public ResponseEntity<?> deleteQuestionBankSubject(@RequestParam String subject, HttpSession session) {
+        ResponseEntity<Map<String, String>> forbidden = requireAdmin(session);
+        if (forbidden != null)
+            return forbidden;
+
+        try {
+            Map<String, Object> result = questionService.deleteQuestionBankSubject(subject);
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to delete question bank."));
+        }
+    }
+
     @PostMapping("/assessments/create")
     @SuppressWarnings("unchecked")
     public ResponseEntity<?> createAssessment(@RequestBody Map<String, Object> payload, HttpSession session) {
@@ -777,7 +793,7 @@ public class AdminRestController {
             return forbidden;
 
         try {
-            assessmentService.deleteAssessment(id);
+            assessmentService.deleteAssessment(id, true);
             return ResponseEntity.ok(Map.of("message", "Assessment deleted successfully."));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of(
