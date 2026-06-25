@@ -27,4 +27,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, Long> {
     // Find candidates by approval status for HR
     @Query("SELECT c FROM Candidate c WHERE c.approved = :approved ORDER BY c.id DESC")
     List<Candidate> findByApproved(@Param("approved") Boolean approved);
+
+    long countByApproved(Boolean approved);
+
+    List<Candidate> findTop8ByOrderByIdDesc();
 }

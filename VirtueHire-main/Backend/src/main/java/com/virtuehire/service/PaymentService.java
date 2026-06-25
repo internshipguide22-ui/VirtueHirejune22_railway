@@ -192,6 +192,15 @@ public class PaymentService {
         return paymentRepository.findAll();
     }
 
+    public List<Payment> getRecentPayments() {
+        return paymentRepository.findTop5ByOrderByIdDesc();
+    }
+
+    public double getTotalSuccessfulRevenue() {
+        Double total = paymentRepository.sumSuccessfulPaymentAmount();
+        return total == null ? 0.0 : total;
+    }
+
     public Payment getPaymentById(Long id) {
         return paymentRepository.findById(id).orElse(null);
     }

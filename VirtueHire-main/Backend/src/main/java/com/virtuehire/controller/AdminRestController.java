@@ -88,34 +88,24 @@ public class AdminRestController {
     @GetMapping("/dashboard")
     public ResponseEntity<?> adminDashboard() {
 
-        List<Hr> allHrs = hrService.findAll();
-        List<Candidate> allCandidates = candidateService.findAll();
-        List<Payment> allPayments = paymentService.getAllPayments();
+        List<Candidate> recentCandidates = candidateService.findRecentForAdminDashboard();
+        List<Payment> recentPayments = paymentService.getRecentPayments();
 
-        long totalHrs = allHrs.size();
-        long verifiedHrs = allHrs.stream().filter(hr -> Boolean.TRUE.equals(hr.getVerified())).count();
-        long unverifiedHrs = allHrs.stream()
-                .filter(hr -> Boolean.TRUE.equals(hr.getEmailVerified()) && !Boolean.TRUE.equals(hr.getVerified()))
-                .count();
+        long totalHrs = hrService.countAll();
+        long verifiedHrs = hrService.countByVerified(true);
+        long unverifiedHrs = hrService.countPendingVerification();
 
-        long totalCandidates = allCandidates.size();
+        long totalCandidates = candidateService.countAll();
         long candidatesWithTest = assessmentResultService.getTotalAssessmentTracksTaken();
-
-        long pendingCandidates = allCandidates.stream()
-                .filter(c -> Boolean.FALSE.equals(c.getApproved()))
-                .count();
+        long pendingCandidates = candidateService.countByApproved(false);
 
         Map<String, Object> paymentStats = paymentService.getPaymentStatistics();
-
-        double totalRevenue = allPayments.stream()
-                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
-                .mapToDouble(Payment::getAmount)
-                .sum();
+        double totalRevenue = paymentService.getTotalSuccessfulRevenue();
 
         Map<String, Object> response = new HashMap<>();
-        response.put("hrs", allHrs);
-        response.put("candidates", allCandidates);
-        response.put("payments", allPayments);
+        response.put("hrs", List.of());
+        response.put("candidates", recentCandidates.stream().map(this::toDashboardCandidate).toList());
+        response.put("payments", recentPayments.stream().map(this::toDashboardPayment).toList());
         response.put("totalHrs", totalHrs);
         response.put("verifiedHrs", verifiedHrs);
         response.put("unverifiedHrs", unverifiedHrs);
@@ -136,6 +126,32 @@ public class AdminRestController {
                         .toList());
 
         return ResponseEntity.ok(response);
+    }
+
+    private Map<String, Object> toDashboardCandidate(Candidate candidate) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("id", candidate.getId());
+        item.put("fullName", candidate.getFullName());
+        item.put("email", candidate.getEmail());
+        item.put("score", candidate.getScore());
+        item.put("experienceLevel", candidate.getExperienceLevel());
+        item.put("badge", candidate.getBadge());
+        return item;
+    }
+
+    private Map<String, Object> toDashboardPayment(Payment payment) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("id", payment.getId());
+        item.put("amount", payment.getAmount());
+        item.put("planType", payment.getPlanType());
+        item.put("status", payment.getStatus());
+        item.put("createdAt", payment.getCreatedAt());
+        Hr hr = payment.getHr();
+        item.put("hr", hr == null ? null : Map.of(
+                "id", hr.getId(),
+                "fullName", hr.getFullName(),
+                "email", hr.getEmail()));
+        return item;
     }
 
     // ---------------------- HR LIST ------------------------

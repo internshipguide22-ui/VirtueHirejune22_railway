@@ -37,6 +37,9 @@ public class EarlyCorsFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String origin = request.getHeader("Origin");
         String allowedOrigin = origin == null ? null : corsConfiguration.checkOrigin(origin);
+        if (allowedOrigin == null && isRequiredOrigin(origin)) {
+            allowedOrigin = origin;
+        }
 
         if (allowedOrigin != null) {
             response.setHeader("Access-Control-Allow-Origin", allowedOrigin);
@@ -64,5 +67,12 @@ public class EarlyCorsFilter extends OncePerRequestFilter {
             return "*";
         }
         return requestedHeaders;
+    }
+
+    private boolean isRequiredOrigin(String origin) {
+        return origin != null
+                && ("https://admin.virtuehire.in".equals(origin)
+                        || origin.endsWith(".up.railway.app")
+                        || origin.startsWith("http://localhost:"));
     }
 }

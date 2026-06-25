@@ -163,6 +163,18 @@ public class CandidateService {
         return repo.findAll();
     }
 
+    public long countAll() {
+        return repo.count();
+    }
+
+    public long countByApproved(Boolean approved) {
+        return repo.countByApproved(approved);
+    }
+
+    public List<Candidate> findRecentForAdminDashboard() {
+        return repo.findTop8ByOrderByIdDesc();
+    }
+
     public void refreshAllAssessmentAssignments() {
         List<Candidate> candidates = repo.findAll();
         for (Candidate candidate : candidates) {

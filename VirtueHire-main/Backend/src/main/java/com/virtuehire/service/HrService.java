@@ -179,6 +179,18 @@ public class HrService {
         return repo.findAll();
     }
 
+    public long countAll() {
+        return repo.count();
+    }
+
+    public long countByVerified(Boolean verified) {
+        return repo.countByVerified(verified);
+    }
+
+    public long countPendingVerification() {
+        return repo.countByEmailVerifiedAndVerified(true, false);
+    }
+
     public Optional<Hr> findById(Long id) {
         return repo.findById(id);
     }

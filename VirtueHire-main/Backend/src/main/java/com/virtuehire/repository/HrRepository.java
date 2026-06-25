@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface HrRepository extends JpaRepository<Hr, Long> {
     Optional<Hr> findByEmail(String email);
     Hr findByEmailAndPassword(String email, String password);
+    long countByVerified(Boolean verified);
+    long countByEmailVerifiedAndVerified(Boolean emailVerified, Boolean verified);
 }

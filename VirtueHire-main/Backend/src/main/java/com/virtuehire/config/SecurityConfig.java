@@ -24,6 +24,7 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    .requestMatchers("/", "/api/public/health").permitAll()
                     .requestMatchers(
                             "/api/auth/**",
                             "/api/public/**",
