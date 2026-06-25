@@ -4,6 +4,7 @@ package com.virtuehire.service;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +14,15 @@ public class DatabaseSchemaFixer {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Value("${app.database.schema-fixer.enabled:true}")
+    private boolean schemaFixerEnabled;
+
     @PostConstruct
     public void fixSchema() {
+        if (!schemaFixerEnabled) {
+            return;
+        }
+
         makeLegacyQuestionTextColumnNullable();
         makeLegacyQuestionOptionColumnsNullable();
         makeTestIdColumnNullable();

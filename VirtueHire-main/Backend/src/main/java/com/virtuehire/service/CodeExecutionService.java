@@ -6,6 +6,7 @@ import com.virtuehire.model.TestCase;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -28,7 +29,7 @@ public class CodeExecutionService {
     @Value("${judge0.api-key:}")
     private String apiKey;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = createRestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ── RUN (for "Run Code" button) ─────────────────────────────
@@ -169,5 +170,12 @@ public class CodeExecutionService {
     private String normalize(String s) {
         if (s == null) return "";
         return s.replace("\r\n", "\n").stripTrailing().trim();
+    }
+
+    private RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(15000);
+        return new RestTemplate(factory);
     }
 }

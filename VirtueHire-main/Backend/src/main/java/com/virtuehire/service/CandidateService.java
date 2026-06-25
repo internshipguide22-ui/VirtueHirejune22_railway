@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -275,10 +276,17 @@ public class CandidateService {
                 "subject", subject,
                 "textContent", body);
 
-        new RestTemplate().postForEntity(
+        createRestTemplate().postForEntity(
                 "https://api.brevo.com/v3/smtp/email",
                 new HttpEntity<>(payload, headers),
                 String.class);
+    }
+
+    private RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(10000);
+        return new RestTemplate(factory);
     }
 
     public void resetPassword(String email, String code, String newPassword) {
