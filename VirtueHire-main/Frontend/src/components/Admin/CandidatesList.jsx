@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../../services/api";
-import { API_BASE_URL } from "../../config";
 import AdminLayout from "./AdminLayout";
 import {
   Users,
@@ -21,7 +20,8 @@ import "./AdminDashboard.css";
 import { useAppDialog } from "../common/AppDialog";
 import {
   DEFAULT_PROFILE_IMAGE,
-  getCandidateFileUrl,
+  getApiUrl,
+  getResumeFileName,
 } from "../Candidate/profile/profileUtils";
 
 export default function CandidatesList() {
@@ -40,6 +40,9 @@ export default function CandidatesList() {
   const { showAlert, showConfirm, dialogNode } = useAppDialog();
 
   const API_BASE = "/admin/candidates";
+
+  const getExperienceLevel = (candidate) =>
+    Number(candidate.experience || 0) > 0 ? "Experienced" : "Fresher";
 
   useEffect(() => {
     fetchCandidates();
@@ -65,8 +68,8 @@ export default function CandidatesList() {
         total: list.length,
         assessed: list.filter((c) => c.assessmentTaken).length,
         assessmentsDone: dashboardRes.data?.candidatesWithTest || 0,
-        fresher: list.filter((c) => c.experienceLevel === "Fresher").length,
-        experienced: list.filter((c) => c.experienceLevel !== "Fresher").length,
+        fresher: list.filter((c) => getExperienceLevel(c) === "Fresher").length,
+        experienced: list.filter((c) => getExperienceLevel(c) === "Experienced").length,
       });
     } catch (err) {
       console.error("Error fetching candidates:", err);
@@ -108,9 +111,9 @@ export default function CandidatesList() {
 
     if (filter === "assessed") return matchesSearch && candidate.assessmentTaken;
     if (filter === "fresher")
-      return matchesSearch && candidate.experienceLevel === "Fresher";
+      return matchesSearch && getExperienceLevel(candidate) === "Fresher";
     if (filter === "experienced")
-      return matchesSearch && candidate.experienceLevel !== "Fresher";
+      return matchesSearch && getExperienceLevel(candidate) === "Experienced";
     return matchesSearch;
   });
 
@@ -282,7 +285,7 @@ export default function CandidatesList() {
                           <img
                             src={
                               candidate.profilePic
-                                ? getCandidateFileUrl(candidate.profilePic)
+                                ? getApiUrl(`/admin/candidates/${candidate.id}/profile-picture?disposition=inline`)
                                 : DEFAULT_PROFILE_IMAGE
                             }
                             alt={candidate.fullName}
@@ -313,7 +316,9 @@ export default function CandidatesList() {
                       {candidate.assessmentTaken ? (
                         <div className="adm-assessment-cell">
                           <span className="adm-badge success">
-                            {candidate.score}% Score
+                            {candidate.assessmentMarkDisplay ||
+                              candidate.scoreDisplay ||
+                              `${candidate.scorePercentage ?? candidate.score ?? 0}%`}
                           </span>
                           {candidate.badge ? (
                             <span className="adm-t-badge">
@@ -329,7 +334,7 @@ export default function CandidatesList() {
                     </td>
                     <td>
                       <div className="adm-t-level">
-                        {candidate.experienceLevel || "Fresher"}
+                        {getExperienceLevel(candidate)}
                       </div>
                       <div className="adm-t-sub">
                         {candidate.experience
@@ -355,7 +360,7 @@ export default function CandidatesList() {
                               try {
                                 const token = localStorage.getItem("token");
                                 const res = await fetch(
-                                  `${API_BASE_URL}/admin/download/resume/${candidate.id}`,
+                                  getApiUrl(`/admin/download/resume/${candidate.id}`),
                                   {
                                     headers: {
                                       Authorization: `Bearer ${token}`,
@@ -368,7 +373,7 @@ export default function CandidatesList() {
                                 const anchor = document.createElement("a");
                                 anchor.href = url;
                                 anchor.download =
-                                  candidate.resumePath.split("/").pop() ||
+                                  getResumeFileName(candidate.resumePath) ||
                                   "resume";
                                 anchor.click();
                                 URL.revokeObjectURL(url);

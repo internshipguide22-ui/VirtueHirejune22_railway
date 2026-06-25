@@ -25,7 +25,6 @@ import { useAppDialog } from "../common/AppDialog";
 import {
   DEFAULT_PROFILE_IMAGE,
   getApiUrl,
-  getCandidateFileUrl,
   getResumeFileName,
 } from "../Candidate/profile/profileUtils";
 
@@ -89,6 +88,9 @@ const splitSkills = (skills = "") =>
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+
+const getExperienceLevel = (candidate) =>
+  Number(candidate?.experience || 0) > 0 ? "Experienced" : "Fresher";
 
 export default function CandidateDetails() {
   const { id } = useParams();
@@ -256,8 +258,13 @@ export default function CandidateDetails() {
   };
 
   const skills = useMemo(() => splitSkills(candidate?.skills || ""), [candidate?.skills]);
-  const resumeUrl = getCandidateFileUrl(candidate?.resumePath);
+  const resumeUrl = candidate?.resumePath
+    ? getApiUrl(`/admin/candidates/${id}/resume?disposition=inline`)
+    : "";
   const resumeDownloadUrl = getApiUrl(`/admin/download/resume/${id}`);
+  const profileImageUrl = candidate?.profilePic
+    ? getApiUrl(`/admin/candidates/${id}/profile-picture?disposition=inline`)
+    : "";
   const resumeName = getResumeFileName(candidate?.resumePath);
 
   if (loading) {
@@ -325,7 +332,7 @@ export default function CandidateDetails() {
               <div className="adm-candidate-avatar">
                 {candidate.profilePic ? (
                   <img
-                    src={getCandidateFileUrl(candidate.profilePic)}
+                    src={profileImageUrl}
                     alt={candidate.fullName}
                     onError={(event) => {
                       event.currentTarget.src = DEFAULT_PROFILE_IMAGE;
@@ -372,7 +379,7 @@ export default function CandidateDetails() {
                   </div>
                   <div className="adm-meta-item">
                     <span className="adm-meta-label">Experience Level</span>
-                    <span className="adm-meta-value">{candidate.experienceLevel || "Not specified"}</span>
+                    <span className="adm-meta-value">{getExperienceLevel(candidate)}</span>
                   </div>
                 </div>
               </div>
@@ -388,7 +395,7 @@ export default function CandidateDetails() {
             </div>
             <div className="adm-summary-grid">
               <div className="adm-summary-stat">
-                <strong>{candidate.score ?? "N/A"}</strong>
+                <strong>{candidate.scoreDisplay || (candidate.score != null ? `${candidate.score}%` : "N/A")}</strong>
                 <span>Latest Score</span>
               </div>
               <div className="adm-summary-stat">
@@ -470,7 +477,7 @@ export default function CandidateDetails() {
                     </div>
                     <div className="adm-info-block">
                       <label>Experience Level</label>
-                      <div>{candidate.experienceLevel || "N/A"}</div>
+                      <div>{getExperienceLevel(candidate)}</div>
                     </div>
                     <div className="adm-info-block">
                       <label>Admin Badge</label>
@@ -639,6 +646,34 @@ export default function CandidateDetails() {
             <div className="adm-card adm-card-section">
               <div className="adm-section-head">
                 <div>
+                  <h3>Assessment Status</h3>
+                  <p>Section attempts with correct answers and percentage.</p>
+                </div>
+              </div>
+              {results.length === 0 ? (
+                <div className="adm-empty-note">No assessment attempts recorded yet.</div>
+              ) : (
+                <div className="adm-badges-list">
+                  {results.map((result) => (
+                    <div key={result.id || `${result.subject}-${result.level}`} className="adm-badge-row">
+                      <div className="adm-badge-info">
+                        <div className="adm-badge-label">{result.subject || "Assessment"}</div>
+                        <div className="adm-badge-subject">
+                          {result.sectionName || `Section ${result.level}`}
+                        </div>
+                      </div>
+                      <div className="adm-badge-score">
+                        {result.scoreDisplay || `${result.score ?? 0}%`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="adm-card adm-card-section">
+              <div className="adm-section-head">
+                <div>
                   <h3>Files</h3>
                   <p>Resume and supporting profile assets.</p>
                 </div>
@@ -672,7 +707,7 @@ export default function CandidateDetails() {
                   <h4><User size={14} style={{ verticalAlign: "middle", marginRight: 6 }} /> Profile Image</h4>
                   <p>{candidate.profilePic || "No profile image uploaded."}</p>
                   {candidate.profilePic ? (
-                    <a href={getCandidateFileUrl(candidate.profilePic)} className="adm-btn-ghost" target="_blank" rel="noreferrer">
+                    <a href={profileImageUrl} className="adm-btn-ghost" target="_blank" rel="noreferrer">
                       View Image
                     </a>
                   ) : null}

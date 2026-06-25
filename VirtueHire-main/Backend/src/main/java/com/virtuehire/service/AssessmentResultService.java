@@ -492,6 +492,14 @@ public class AssessmentResultService {
         Optional<AssessmentResult> latestResult = subjectResults.stream()
                 .max(Comparator.comparing(AssessmentResult::getAttemptedAt,
                         Comparator.nullsLast(Comparator.naturalOrder())));
+        Optional<AssessmentSection> latestSection = latestResult.flatMap(result -> assessmentSectionRepository
+                .findByAssessmentNameAndSectionNumber(result.getSubject(), result.getLevel()));
+        int latestTotalQuestions = latestSection.map(AssessmentSection::getQuestionCount).orElse(0);
+        Integer latestCorrectCount = latestResult
+                .filter(result -> latestTotalQuestions > 0)
+                .map(result -> (int) Math.round((result.getScore() / 100.0) * latestTotalQuestions))
+                .orElse(null);
+        int latestScore = latestResult.map(AssessmentResult::getScore).orElse(0);
 
         Map<String, Object> track = new LinkedHashMap<>();
         track.put("subject", subject);
@@ -501,7 +509,12 @@ public class AssessmentResultService {
         track.put("totalSections", totalSections);
         track.put("completed", totalSections > 0 && clearedLevels.size() >= totalSections);
         track.put("offlineTaken", subjectResults.stream().anyMatch(AssessmentResult::isOfflineMode));
-        track.put("latestScore", latestResult.map(AssessmentResult::getScore).orElse(0));
+        track.put("latestScore", latestScore);
+        track.put("latestTotalQuestions", latestTotalQuestions > 0 ? latestTotalQuestions : null);
+        track.put("latestCorrectCount", latestCorrectCount);
+        track.put("latestScoreDisplay", latestCorrectCount != null
+                ? latestCorrectCount + " of " + latestTotalQuestions + " correct (" + latestScore + "%)"
+                : latestScore + "%");
         track.put("latestAttemptedAt", latestResult.map(AssessmentResult::getAttemptedAt).orElse(null));
         return track;
     }

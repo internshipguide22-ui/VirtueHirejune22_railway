@@ -1,6 +1,7 @@
 package com.virtuehire.controller;
 
 import com.virtuehire.model.*;
+import com.virtuehire.repository.AssessmentSectionRepository;
 import com.virtuehire.service.*;
 import com.virtuehire.util.StoragePathResolver;
 import org.springframework.core.io.Resource;
@@ -21,7 +22,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +42,7 @@ public class AdminRestController {
     private final QuestionService questionService;
     private final AssessmentResultService assessmentResultService;
     private final AssessmentService assessmentService;
+    private final AssessmentSectionRepository assessmentSectionRepository;
     private final AdminNotificationService adminNotificationService;
     private final HiringWorkflowService hiringWorkflowService;
     private final TestAllocationService testAllocationService;
@@ -48,6 +52,7 @@ public class AdminRestController {
             CandidateService candidateService, CandidateAccessRequestService candidateAccessRequestService,
             QuestionService questionService,
             AssessmentResultService assessmentResultService, AssessmentService assessmentService,
+            AssessmentSectionRepository assessmentSectionRepository,
             AdminNotificationService adminNotificationService,
             HiringWorkflowService hiringWorkflowService,
             TestAllocationService testAllocationService,
@@ -59,6 +64,7 @@ public class AdminRestController {
         this.questionService = questionService;
         this.assessmentResultService = assessmentResultService;
         this.assessmentService = assessmentService;
+        this.assessmentSectionRepository = assessmentSectionRepository;
         this.adminNotificationService = adminNotificationService;
         this.hiringWorkflowService = hiringWorkflowService;
         this.testAllocationService = testAllocationService;
@@ -329,6 +335,7 @@ public class AdminRestController {
             return ResponseEntity.notFound().build();
 
         List<AssessmentResult> results = assessmentResultService.getCandidateResults(id);
+        Map<String, Object> statusSummary = assessmentResultService.getCandidateStatusSummary(id);
 
         // FIX: Add cache-control headers to prevent browser caching candidate data
         return ResponseEntity.ok()
@@ -336,19 +343,25 @@ public class AdminRestController {
                 .header("Pragma", "no-cache")
                 .header("Expires", "0")
                 .body(Map.of(
-                        "candidate", candidate,
-                        "results", results,
-                        "statusSummary", assessmentResultService.getCandidateStatusSummary(id)));
+                        "candidate", toAdminCandidatePayload(candidate, statusSummary),
+                        "results", results.stream().map(this::toAdminResultPayload).toList(),
+                        "statusSummary", statusSummary));
     }
 
     @GetMapping("/candidates")
     public ResponseEntity<?> getAllCandidates() {
+        List<Map<String, Object>> candidates = candidateService.findAll().stream()
+                .map(candidate -> toAdminCandidatePayload(
+                        candidate,
+                        assessmentResultService.getCandidateStatusSummary(candidate.getId())))
+                .toList();
+
         // FIX: Add cache-control headers to prevent browser caching candidate data
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-cache, no-store, must-revalidate")
                 .header("Pragma", "no-cache")
                 .header("Expires", "0")
-                .body(Map.of("candidates", candidateService.findAll()));
+                .body(Map.of("candidates", candidates));
     }
 
     @DeleteMapping("/candidates/{id}")
@@ -388,7 +401,7 @@ public class AdminRestController {
         candidate.setCollegeUniversity(payload.getCollegeUniversity());
         candidate.setYearOfGraduation(payload.getYearOfGraduation());
         candidate.setExperience(payload.getExperience());
-        candidate.setExperienceLevel(payload.getExperienceLevel());
+        candidate.setExperienceLevel(resolveExperienceLevel(payload.getExperience(), payload.getExperienceLevel()));
         candidate.setSkills(payload.getSkills());
         candidate.setBadge(payload.getBadge());
         candidate.setApproved(payload.getApproved());
@@ -398,9 +411,10 @@ public class AdminRestController {
         candidate.setRejectionReason(payload.getRejectionReason());
 
         Candidate savedCandidate = candidateService.save(candidate);
+        Map<String, Object> statusSummary = assessmentResultService.getCandidateStatusSummary(savedCandidate.getId());
         return ResponseEntity.ok(Map.of(
                 "message", "Candidate updated successfully",
-                "candidate", savedCandidate));
+                "candidate", toAdminCandidatePayload(savedCandidate, statusSummary)));
     }
 
     @GetMapping("/candidate-access-requests")
@@ -960,5 +974,132 @@ public class AdminRestController {
             return safeFileName.substring(separatorIndex + 1);
         }
         return safeFileName;
+    }
+
+    private Map<String, Object> toAdminCandidatePayload(Candidate candidate, Map<String, Object> statusSummary) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", candidate.getId());
+        data.put("fullName", candidate.getFullName());
+        data.put("email", candidate.getEmail());
+        data.put("phoneNumber", candidate.getPhoneNumber());
+        data.put("alternatePhoneNumber", candidate.getAlternatePhoneNumber());
+        data.put("gender", candidate.getGender());
+        data.put("dateOfBirth", candidate.getDateOfBirth());
+        data.put("city", candidate.getCity());
+        data.put("state", candidate.getState());
+        data.put("highestEducation", candidate.getHighestEducation());
+        data.put("collegeUniversity", candidate.getCollegeUniversity());
+        data.put("yearOfGraduation", candidate.getYearOfGraduation());
+        data.put("experience", candidate.getExperience() != null ? candidate.getExperience() : 0);
+        data.put("experienceLevel", resolveExperienceLevel(candidate.getExperience(), candidate.getExperienceLevel()));
+        data.put("skills", candidate.getSkills());
+        data.put("resumePath", candidate.getResumePath());
+        data.put("profilePic", candidate.getProfilePic());
+        data.put("badge", candidate.getBadge());
+        data.put("approved", candidate.getApproved());
+        data.put("emailVerified", candidate.getEmailVerified());
+        data.put("assessmentTaken", Boolean.TRUE.equals(candidate.getAssessmentTaken())
+                || Boolean.TRUE.equals(statusSummary.get("hasAttended")));
+        data.put("selectionStatus", candidate.getSelectionStatus());
+        data.put("selectionNote", candidate.getSelectionNote());
+        data.put("rejectionReason", candidate.getRejectionReason());
+        data.put("assignedAssessmentName", candidate.getAssignedAssessmentName());
+        data.put("assessmentAssignmentStatus", candidate.getAssessmentAssignmentStatus());
+        data.put("assessmentAssignmentMessage", candidate.getAssessmentAssignmentMessage());
+
+        Integer latestScore = getLatestScore(candidate.getId());
+        int bestScore = asInt(statusSummary.get("bestScore"), candidate.getScore() != null ? candidate.getScore() : 0);
+        Map<String, Object> assessmentMarks = buildAssessmentMarks(candidate.getId(), bestScore);
+        data.put("score", latestScore != null ? latestScore : bestScore);
+        data.put("scorePercentage", assessmentMarks.get("percentage"));
+        data.put("correctCount", assessmentMarks.get("correctCount"));
+        data.put("totalQuestions", assessmentMarks.get("totalQuestions"));
+        data.put("assessmentMarkDisplay", assessmentMarks.get("display"));
+        data.put("scoreDisplay", assessmentMarks.get("display"));
+        data.put("statusSummary", statusSummary);
+        return data;
+    }
+
+    private Map<String, Object> toAdminResultPayload(AssessmentResult result) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", result.getId());
+        data.put("subject", result.getSubject());
+        data.put("level", result.getLevel());
+        data.put("score", result.getScore());
+        data.put("scorePercentage", result.getScore());
+        data.put("attemptedAt", result.getAttemptedAt());
+        data.put("lockedAt", result.getLockedAt());
+        data.put("offlineMode", result.isOfflineMode());
+
+        Optional<AssessmentSection> section = assessmentSectionRepository
+                .findByAssessmentNameAndSectionNumber(result.getSubject(), result.getLevel());
+        int totalQuestions = section.map(AssessmentSection::getQuestionCount).orElse(0);
+        Integer correctCount = totalQuestions > 0
+                ? (int) Math.round((result.getScore() / 100.0) * totalQuestions)
+                : null;
+
+        data.put("sectionName", section.map(AssessmentSection::getSubject).orElse("Section " + result.getLevel()));
+        data.put("totalQuestions", totalQuestions > 0 ? totalQuestions : null);
+        data.put("correctCount", correctCount);
+        data.put("scoreDisplay", correctCount != null
+                ? correctCount + " of " + totalQuestions + " correct (" + result.getScore() + "%)"
+                : result.getScore() + "%");
+        return data;
+    }
+
+    private String resolveExperienceLevel(Integer experience, String storedLevel) {
+        int years = experience != null ? Math.max(0, experience) : 0;
+        if (years == 0) {
+            return "Fresher";
+        }
+        return "Experienced";
+    }
+
+    private Integer getLatestScore(Long candidateId) {
+        return assessmentResultService.getCandidateResults(candidateId).stream()
+                .max(Comparator.comparing(AssessmentResult::getAttemptedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(AssessmentResult::getScore)
+                .orElse(null);
+    }
+
+    private Map<String, Object> buildAssessmentMarks(Long candidateId, int fallbackScore) {
+        int correctCount = 0;
+        int totalQuestions = 0;
+
+        for (AssessmentResult result : assessmentResultService.getCandidateResults(candidateId)) {
+            int sectionQuestions = assessmentSectionRepository
+                    .findByAssessmentNameAndSectionNumber(result.getSubject(), result.getLevel())
+                    .map(AssessmentSection::getQuestionCount)
+                    .orElse(0);
+            if (sectionQuestions <= 0) {
+                continue;
+            }
+
+            totalQuestions += sectionQuestions;
+            correctCount += (int) Math.round((result.getScore() / 100.0) * sectionQuestions);
+        }
+
+        if (totalQuestions <= 0) {
+            return Map.of(
+                    "correctCount", 0,
+                    "totalQuestions", 0,
+                    "percentage", fallbackScore,
+                    "display", fallbackScore + "%");
+        }
+
+        int percentage = (int) Math.round((correctCount * 100.0) / totalQuestions);
+        return Map.of(
+                "correctCount", correctCount,
+                "totalQuestions", totalQuestions,
+                "percentage", percentage,
+                "display", correctCount + "/" + totalQuestions + " correct (" + percentage + "%)");
+    }
+
+    private int asInt(Object value, int fallback) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return fallback;
     }
 }
