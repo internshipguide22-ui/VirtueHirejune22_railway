@@ -24,7 +24,7 @@ Add application variables:
 MAIL_USERNAME=your-gmail-address
 MAIL_PASSWORD=your-gmail-app-password
 UPLOAD_DIR=/app/uploads
-CORS_ALLOWED_ORIGIN_PATTERNS=https://your-frontend-domain.up.railway.app
+CORS_ALLOWED_ORIGIN_PATTERNS=https://admin.virtuehire.in,https://your-frontend-domain.up.railway.app
 ```
 
 Attach a Railway volume to the backend at `/app/uploads`.

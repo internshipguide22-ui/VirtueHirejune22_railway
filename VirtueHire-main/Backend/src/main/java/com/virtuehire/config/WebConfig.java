@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private JwtInterceptor jwtInterceptor;
 
-    @Value("${app.cors.allowed-origin-patterns:https://*.up.railway.app,http://localhost:*}")
+    @Value("${app.cors.allowed-origin-patterns:https://admin.virtuehire.in,https://*.up.railway.app,http://localhost:*}")
     private String[] allowedOriginPatterns;
 
     @Override
