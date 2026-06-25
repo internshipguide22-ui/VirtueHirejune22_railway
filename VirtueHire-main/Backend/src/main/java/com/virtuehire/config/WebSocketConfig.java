@@ -23,17 +23,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/api/ws-assessment")
-                .setAllowedOriginPatterns(allowedOriginPatterns)
+                .setAllowedOriginPatterns(CorsOriginPatterns.mergeWithRequiredPatterns(allowedOriginPatterns).toArray(String[]::new))
                 .withSockJS();
 
         registry.addEndpoint("/api/ws-assessment")
-                .setAllowedOriginPatterns(allowedOriginPatterns);
+                .setAllowedOriginPatterns(CorsOriginPatterns.mergeWithRequiredPatterns(allowedOriginPatterns).toArray(String[]::new));
 
         registry.addEndpoint("/ws-assessment")
-                .setAllowedOriginPatterns(allowedOriginPatterns)
+                .setAllowedOriginPatterns(CorsOriginPatterns.mergeWithRequiredPatterns(allowedOriginPatterns).toArray(String[]::new))
                 .withSockJS();
         
         registry.addEndpoint("/ws-assessment")
-                .setAllowedOriginPatterns(allowedOriginPatterns);
+                .setAllowedOriginPatterns(CorsOriginPatterns.mergeWithRequiredPatterns(allowedOriginPatterns).toArray(String[]::new));
     }
 }
